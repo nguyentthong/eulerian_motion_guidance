@@ -9,37 +9,6 @@ cycle test that excludes occluded regions automatically. The result is
 sharper motion, fewer ghosting artifacts, and substantially better
 metric scores on WebVid-10M and CelebV-HQ.
 
-## What's in the box
-
-- Faithful PyTorch implementation of every equation in the paper:
-  Eq. 4–5 (Eulerian flow), Eq. 8 (cycle energy), Eq. 9 (dynamic
-  occlusion mask), Eq. 10 (geometric loss), Eq. 11–12 (parallel flow
-  batching), Eq. 13 (autoregressive generative chain).
-- All ablation knobs from Table 3 (motion formulation,
-  consistency mode) and Table 4 (`α₁`, `α₂` sweep) plumbed through
-  YAML config.
-- Frozen [RAFT-Large][raft] (FlyingThings3D weights) wrapper at 256×256
-  operating resolution.
-- Frozen SVD-XT wrapper that loads `unet`, `vae`, `image_encoder`,
-  `image_processor`, and `scheduler` from a single HF id.
-- ControlNet-style FlowControlNet, U-Net Sparse-to-Dense network,
-  multi-scale Motion Adapter — every trainable component initialised
-  to a near-identity residual.
-- Trainer with EMA shadowing, gradient clipping, mixed precision
-  (bf16/fp16/fp32), gradient checkpointing, and DDP support
-  (`torchrun`).
-- Autoregressive long-video sampler that chains 14-frame SVD-XT
-  windows up to the paper's `T = 100`.
-- Full evaluation suite — LPIPS, FID, FVD, CLIP-Cons, E_warp
-  (Lai *et al.* 2018), CPBD, ArcFace identity — wired to a single
-  `Evaluator` that emits both JSON and Markdown reports in the
-  paper's table format.
-- 27 unit tests covering the core math (warping, cycle energy,
-  occlusion mask, parallel-flow batching, dataloader).
-
-[svd]: https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt
-[raft]: https://arxiv.org/abs/2003.12039
-
 ## Repository layout
 
 ```

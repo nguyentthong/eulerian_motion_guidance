@@ -116,27 +116,6 @@ torchrun --nproc_per_node 4 scripts/train.py \
     data.video_root=/data/webvid/videos
 ```
 
-### CPU smoke test (no real data)
-
-```bash
-python scripts/train.py --config configs/default.yaml --smoke
-```
-
-### Reproducing the ablations
-
-The `motion.formulation`, `consistency.mode`, `consistency.alpha1`, and
-`consistency.alpha2` keys map directly to Tables 3 and 4. Override
-them on the CLI; no config edits required.
-
-| Run | Override |
-| --- | --- |
-| Lagrangian motion (Table 3 row 1) | `motion.formulation=lagrangian` |
-| No consistency loss (Table 3 row 2) | `consistency.mode=none consistency.lambda_geo=0` |
-| Forward-only consistency (Table 3 row 3) | `consistency.mode=forward_only` |
-| Full BGC (Table 3 row 4, default) | `consistency.mode=bidirectional` |
-| Table 4 `α₁` sweep | `consistency.alpha1=0.005` (then `0.01`, `0.05`) |
-| Table 4 `α₂` sweep | `consistency.alpha2=0.1` (then `0.5`, `1.0`) |
-
 ## Evaluation
 
 ```bash

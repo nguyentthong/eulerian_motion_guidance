@@ -185,10 +185,8 @@ Apache-2.0 (see `LICENSE`).
 
 This implementation builds on the following community releases:
 
-- [Stable Video Diffusion XT][svd] — Stability AI, frozen backbone.
-- [RAFT][raft] — Teed & Deng, frozen flow estimator. We use the
+- Stability AI, frozen backbone.
+- RAFT — Teed & Deng, frozen flow estimator. We use the
   `torchvision` reimplementation with FlyingThings3D weights.
-- [WebVid-10M][webvid] — Bain *et al.* (deprecated upstream as of 2024;
+- WebVid-10M — Bain *et al.* (deprecated upstream as of 2024;
   this repo does not redistribute the data).
-
-[webvid]: https://maxbain.com/webvid-dataset/

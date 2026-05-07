@@ -1,6 +1,6 @@
 # Eulerian Motion Guidance (EMG)
 
-EMG conditions a frozen [Stable Video Diffusion (SVD-XT)][svd] backbone on
+EMG conditions a frozen Stable Video Diffusion backbone on
 *adjacent-frame Eulerian flows* rather than the more conventional
 reference-anchored Lagrangian flows. A **Bidirectional Geometric
 Consistency (BGC)** loss enforces that the model's denoised latents

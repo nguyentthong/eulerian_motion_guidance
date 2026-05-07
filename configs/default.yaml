@@ -1,0 +1,72 @@
+# Default base config — the trajectory-WebVid recipe inherits from this
+# (see ``configs/trajectory_webvid.yaml``).  All numbers reflect the
+# paper's reported defaults (Section 5.1, Appendix D).
+
+seed: 42
+deterministic: false  # toggle torch.use_deterministic_algorithms(True)
+
+motion:
+  formulation: eulerian   # 'eulerian' (default) | 'lagrangian'
+
+consistency:
+  mode: bidirectional     # 'none' | 'forward_only' | 'bidirectional'
+  alpha1: 0.01            # Eq. 9 dynamic threshold weight
+  alpha2: 0.5             # Eq. 9 static noise floor
+  lambda_geo: 0.1         # weight on L_geo (Eq. 10)
+
+model:
+  svd_model_id: stabilityai/stable-video-diffusion-img2vid-xt
+  raft_size: 256
+  raft_num_updates: 12
+  s2d:
+    in_channels: 3
+    base_channels: 32
+    depth: 5
+  flow_controlnet:
+    latent_channels: 4
+    flow_channels: 2
+    block_channels: [320, 640, 1280, 1280]
+
+training:
+  batch_size: 1
+  num_frames: 14          # native SVD-XT window
+  resolution: 256
+  learning_rate: 2.0e-5   # paper default (AdamW)
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  gradient_clip: 1.0
+  ema_decay: 0.9999
+  mixed_precision: bf16   # bf16 | fp16 | fp32
+  gradient_checkpointing: true
+  log_interval: 50
+  ckpt_interval: 1000
+  val_interval: 500
+  max_steps: 100000
+  ckpt_dir: ./checkpoints
+  num_workers: 4
+  scheduler: constant     # constant | cosine | linear_warmup_cosine
+
+data:
+  dataset: webvid
+  manifest: /path/to/webvid_manifest.csv
+  video_root: /path/to/webvid/videos
+  num_hints: 32           # sparse hints per adjacent pair
+
+inference:
+  num_frames: 100         # paper default
+  window_size: 14
+  num_inference_steps: 25
+  guidance_scale: 1.5
+  fps: 8
+  seed: 0
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: emg
+  wandb_entity: null
+  output_dir: ./outputs
+
+evaluation:
+  metrics: [lpips, fid, fvd, clip_cons, e_warp]
+  output_dir: ./eval_outputs

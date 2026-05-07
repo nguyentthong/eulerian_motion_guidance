@@ -1,0 +1,42 @@
+# Trajectory-based image animation on WebVid-10M.  Reproduces Table 1.
+#
+# Usage:
+#   python scripts/train.py --config configs/trajectory_webvid.yaml \
+#                           data.manifest=/data/webvid/manifest.csv \
+#                           data.video_root=/data/webvid/videos
+#
+# This config inherits all defaults from ``default.yaml`` and overrides
+# the dataset wiring; the rest of the pipeline is untouched.
+
+# We compose ``default.yaml`` via OmegaConf interpolation in scripts.
+# Users may also `cat default.yaml trajectory_webvid.yaml > merged.yaml`.
+
+seed: 42
+
+motion:
+  formulation: eulerian
+
+consistency:
+  mode: bidirectional
+  alpha1: 0.01
+  alpha2: 0.5
+  lambda_geo: 0.1
+
+training:
+  batch_size: 1
+  num_frames: 14
+  learning_rate: 2.0e-5
+  max_steps: 100000
+  mixed_precision: bf16
+  ema_decay: 0.9999
+  ckpt_dir: ./checkpoints/traj_webvid
+
+data:
+  dataset: webvid
+  manifest: /path/to/webvid_manifest.csv
+  video_root: /path/to/webvid/videos
+  num_hints: 32
+
+evaluation:
+  metrics: [lpips, fid, fvd, clip_cons, e_warp]
+  output_dir: ./eval_outputs/traj_webvid

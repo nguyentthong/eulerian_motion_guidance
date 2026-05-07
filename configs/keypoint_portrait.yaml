@@ -1,0 +1,42 @@
+# Keypoint-based portrait animation.  Reproduces Table 2.
+#
+# We use VFHQ or CelebV-HQ as the data source — supply a manifest of
+# clips and let the loader pull MediaPipe landmarks at runtime.
+#
+# Usage:
+#   python scripts/train.py --config configs/keypoint_portrait.yaml \
+#                           data.video_root=/data/celebv-hq
+
+seed: 42
+
+motion:
+  formulation: eulerian
+
+consistency:
+  mode: bidirectional
+  alpha1: 0.01
+  alpha2: 0.5
+  lambda_geo: 0.1
+
+training:
+  batch_size: 1
+  num_frames: 14
+  learning_rate: 2.0e-5
+  max_steps: 80000
+  mixed_precision: bf16
+  ckpt_dir: ./checkpoints/kp_portrait
+
+data:
+  dataset: portrait        # 'webvid' | 'portrait'
+  layout: celebv_hq        # 'vfhq' | 'celebv_hq'
+  video_root: /path/to/celebv-hq
+  num_hints: 64            # more hints — landmarks are denser than user trajectories
+  landmark_backend: mediapipe   # 'mediapipe' | 'face_alignment' | 'none'
+
+inference:
+  num_frames: 196          # Table 2 protocol
+  window_size: 14
+
+evaluation:
+  metrics: [cpbd, arcface, clip_cons, e_warp]
+  output_dir: ./eval_outputs/kp_portrait

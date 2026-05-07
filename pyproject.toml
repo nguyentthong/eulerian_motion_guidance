@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "emg"
+version = "0.1.0"
+description = "Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency (MM '26)."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10,<3.13"
+authors = [{ name = "EMG Authors" }]
+
+# Core runtime dependencies. Heavy libraries (torch / diffusers / etc.) are
+# listed but versioned permissively so that the package installs on a wide
+# range of CUDA/Python combinations. Pin in environments via uv.lock.
+dependencies = [
+    "torch>=2.4",
+    "torchvision>=0.19",
+    "diffusers>=0.30",
+    "transformers>=4.40",
+    "accelerate>=0.30",
+    "huggingface_hub>=0.24",
+    "einops>=0.7",
+    "omegaconf>=2.3",
+    "tqdm>=4.66",
+    "rich>=13.7",
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "imageio>=2.34",
+    "imageio-ffmpeg>=0.4",
+    "av>=12.0",
+    "pyyaml>=6.0",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+# Heavy / optional ML dependencies. Many users won't need every metric so
+# keep these out of the core dep set.
+metrics = [
+    "lpips>=0.1.4",
+    "clean-fid>=0.1.35",
+    "open_clip_torch>=2.24",
+    "insightface>=0.7",
+    "scikit-image>=0.22",
+]
+keypoints = [
+    "mediapipe>=0.10",
+    "face-alignment>=1.4",
+]
+logging = [
+    "wandb>=0.17",
+    "tensorboard>=2.15",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "types-PyYAML",
+    "types-tqdm",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/emg"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B008", "N812", "SIM108", "C408"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+warn_unused_ignores = false
+files = ["src/emg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]

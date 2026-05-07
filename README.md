@@ -1,10 +1,5 @@
 # Eulerian Motion Guidance (EMG)
 
-A research-grade reference implementation of:
-
-> **Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency**
-> Nguyen *et al.*, ACM MM '26.
-
 EMG conditions a frozen [Stable Video Diffusion (SVD-XT)][svd] backbone on
 *adjacent-frame Eulerian flows* rather than the more conventional
 reference-anchored Lagrangian flows. A **Bidirectional Geometric

@@ -167,13 +167,11 @@ single list is broadcast to all pairs.
 ## Citing
 
 ```bibtex
-@inproceedings{nguyen2026emg,
-  title     = {Eulerian Motion Guidance: Robust Image Animation via
-               Bidirectional Geometric Consistency},
-  author    = {Nguyen and others},
-  booktitle = {Proceedings of the ACM International Conference on
-               Multimedia (MM '26)},
-  year      = {2026}
+@article{nguyen2026eulerian,
+  title={Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency},
+  author={Nguyen, Thong and Le, Khoi M and Nguyen, Cong-Duy and Tuan, Luu Anh and Ng, See-Kiong and Miao, Chunyan},
+  journal={arXiv preprint arXiv:2605.06280},
+  year={2026}
 }
 ```
 

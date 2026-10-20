@@ -1,4 +1,4 @@
-"""Parallelised bidirectional flow computation (Section 4.3, Eq. 11–12).
+"""Parallelised bidirectional flow computation (Section 4.3, Eqs. 11-12).
 
 The paper's training-efficiency contribution is a *batched* construction
 of the forward and backward adjacent-frame pairs that lets a single
@@ -51,7 +51,7 @@ class ParallelFlowOutput:
     Attributes:
         flows: bidirectional :class:`EulerianFlowSequence`.
         wall_clock_seconds: optional timing of the single estimator
-            forward pass — ``None`` unless ``time_it=True`` was passed.
+            forward pass, or ``None`` unless ``time_it=True`` was passed.
     """
 
     flows: EulerianFlowSequence
@@ -61,14 +61,14 @@ class ParallelFlowOutput:
 def build_forward_backward_pairs(video: Tensor) -> tuple[Tensor, Tensor]:
     """Construct the forward and backward dyad batches.
 
-    Implements Eq. 11–12.  Given a video tensor
+    Implements Eqs. 11-12.  Given a video tensor
     ``V ∈ R^{B,T,C,H,W}`` we return
 
     * ``A_fwd, A_bwd, B_fwd, B_bwd`` flattened along the temporal
       axis so that the resulting tensors are 4-D and can be passed
       directly to a vanilla CNN flow estimator.
 
-    The construction uses pure tensor operations — no Python loops.
+    The construction uses pure tensor operations with no Python loops.
 
     Args:
         video: ``(B, T, C, H, W)`` clip with ``T ≥ 2``.
@@ -78,13 +78,13 @@ def build_forward_backward_pairs(video: Tensor) -> tuple[Tensor, Tensor]:
         ``(2 * B * (T-1), C, H, W)``.  The first ``B * (T-1)`` entries
         of ``pair_a`` are the forward sources ``I_t`` and the same
         entries of ``pair_b`` are the forward targets ``I_{t+1}``.
-        The second half flips the order — backward pairs.
+        The second half flips the order to form the backward pairs.
     """
     if video.dim() != 5:
-        raise ValueError(f"video must be (B, T, C, H, W); got {tuple(video.shape)}")
+        raise ValueError(f"video must be (B, T, C, H, W), got {tuple(video.shape)}")
     b, t, c, h, w = video.shape
     if t < 2:
-        raise ValueError(f"Need T >= 2 to form adjacent pairs; got T={t}")
+        raise ValueError(f"Need T >= 2 to form adjacent pairs, got T={t}")
 
     # P_fwd: (I_t, I_{t+1})
     fwd_a = video[:, :-1]  # (B, T-1, C, H, W)
@@ -113,7 +113,7 @@ def parallel_bidirectional_flow(
 ) -> ParallelFlowOutput:
     """Run a single estimator pass that yields all bidirectional flows.
 
-    Implements Eq. 11–12 with one batched call:
+    Implements Eqs. 11-12 with one batched call:
 
     .. code-block:: text
 
@@ -122,7 +122,7 @@ def parallel_bidirectional_flow(
         F_bwd = F_all[B*(T-1) :]
 
     Args:
-        video: ``(B, T, C, H, W)`` clip; values in ``[0, 1]`` or
+        video: ``(B, T, C, H, W)`` clip with values in ``[0, 1]`` or
             normalised to whatever the estimator expects.
         estimator: An object obeying the :class:`FlowEstimator` protocol.
             Should be frozen (the paper uses a frozen RAFT).
@@ -145,8 +145,8 @@ def parallel_bidirectional_flow(
     start: torch.cuda.Event | None = None
     end: torch.cuda.Event | None = None
     if time_it and torch.cuda.is_available():
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
+        start = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
+        end = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
         start.record()
 
     flow_all = estimator(pair_a, pair_b)  # (2N, 2, H, W)
@@ -159,7 +159,7 @@ def parallel_bidirectional_flow(
 
     if flow_all.shape != (2 * n, 2, h, w):
         raise RuntimeError(
-            f"Estimator returned unexpected shape {tuple(flow_all.shape)}; "
+            f"Estimator returned unexpected shape {tuple(flow_all.shape)}, "
             f"expected ({2 * n}, 2, {h}, {w})"
         )
 

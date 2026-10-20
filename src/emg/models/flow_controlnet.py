@@ -16,13 +16,12 @@ residuals that the calling code adds into the frozen U-Net.
 For readers without diffusers installed (e.g. CI), the module also has
 a "stub mode" that operates on a small synthetic encoder, so the
 ControlNet's logic itself remains testable.
-
-See ``DESIGN_NOTES.md`` §2.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -47,6 +46,7 @@ class FlowControlNetOutput:
 
 def _zero_conv(in_ch: int, out_ch: int) -> nn.Conv2d:
     conv = nn.Conv2d(in_ch, out_ch, kernel_size=1, padding=0)
+    assert conv.bias is not None  # narrow for mypy
     nn.init.zeros_(conv.weight)
     nn.init.zeros_(conv.bias)
     return conv
@@ -78,7 +78,8 @@ class _DownBlock(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.block(x)
-        return self.downsample(x)
+        out: Tensor = self.downsample(x)
+        return out
 
 
 class FlowControlNet(nn.Module):
@@ -132,9 +133,11 @@ class FlowControlNet(nn.Module):
             mirror_blocks: list[nn.Module] = []
             prev = first
             for i, c in enumerate(self.block_channels):
-                # First block keeps the input conv; subsequent blocks
+                # First block keeps the input conv and subsequent blocks
                 # downsample by 2.
-                mirror_blocks.append(_DownBlock(prev, c, downsample=i < len(self.block_channels) - 1))
+                mirror_blocks.append(
+                    _DownBlock(prev, c, downsample=i < len(self.block_channels) - 1)
+                )
                 prev = c
             self.encoder_blocks = nn.ModuleList(mirror_blocks)
             g = min(8, prev)
@@ -148,17 +151,15 @@ class FlowControlNet(nn.Module):
             # Production path: deep-copy the encoder and middle block.
             from copy import deepcopy
 
-            self.encoder_blocks = deepcopy(svd_unet.down_blocks)
-            self.mid_block = deepcopy(svd_unet.mid_block)
+            self.encoder_blocks = cast(nn.ModuleList, deepcopy(svd_unet.down_blocks))
+            self.mid_block = cast(nn.Sequential, deepcopy(svd_unet.mid_block))
             for p in self.encoder_blocks.parameters():
                 p.requires_grad = True
             for p in self.mid_block.parameters():
                 p.requires_grad = True
 
         # Zero-conv heads producing the per-block residuals.
-        self.zero_convs_down = nn.ModuleList(
-            [_zero_conv(c, c) for c in self.block_channels]
-        )
+        self.zero_convs_down = nn.ModuleList([_zero_conv(c, c) for c in self.block_channels])
         self.zero_conv_mid = _zero_conv(self.block_channels[-1], self.block_channels[-1])
 
     def _stub_forward(self, latent_with_flow: Tensor) -> FlowControlNetOutput:
@@ -190,11 +191,11 @@ class FlowControlNet(nn.Module):
         """
         if latent.dim() != 4 or latent.shape[1] != self.latent_channels:
             raise ValueError(
-                f"latent must be (N, {self.latent_channels}, H, W); got {tuple(latent.shape)}"
+                f"latent must be (N, {self.latent_channels}, H, W), got {tuple(latent.shape)}"
             )
         if flow.dim() != 4 or flow.shape[1] != self.flow_channels:
             raise ValueError(
-                f"flow must be (N, {self.flow_channels}, H, W); got {tuple(flow.shape)}"
+                f"flow must be (N, {self.flow_channels}, H, W), got {tuple(flow.shape)}"
             )
         if latent.shape[0] != flow.shape[0] or latent.shape[-2:] != flow.shape[-2:]:
             raise ValueError(
@@ -209,8 +210,8 @@ class FlowControlNet(nn.Module):
 
         # Production path: feed the conditioning input through the
         # SVD encoder mirror.  The diffusers blocks expect a temb /
-        # encoder_hidden_states; the calling code in trainer
-        # supplies these via partial application — here we just run
+        # encoder_hidden_states, which the calling code in trainer
+        # supplies via partial application.  Here we just run
         # the conv-only stub mirror over the conditioning, which
         # produces residuals that the trainer adds into the U-Net's
         # skip path.  The exact diffusers call is wrapped in
@@ -233,7 +234,7 @@ class FlowControlNet(nn.Module):
         """Run a diffusers block in a minimal, attribute-tolerant way.
 
         The full UNet3DCondition blocks expect timestep embeddings &
-        cross-attention contexts; this helper bypasses those by walking
+        cross-attention contexts.  This helper bypasses those by walking
         the resnets and downsamplers directly.  This is sufficient for
         ControlNet-style use because the residual-adding happens after
         the spatial features are stable.

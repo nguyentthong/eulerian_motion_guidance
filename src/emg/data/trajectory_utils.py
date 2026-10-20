@@ -5,9 +5,9 @@ The S2D network expands these hints into a dense Eulerian flow field.
 
 We provide two entry points:
 
-* :func:`sample_random_trajectories` — used during training to harvest
+* :func:`sample_random_trajectories`: used during training to harvest
   sparse hints from RAFT pseudo-ground-truth flows.
-* :func:`rasterise_hints` — converts a list of
+* :func:`rasterise_hints`: converts a list of
   :class:`SparseHint` into the 3-channel ``(u, v, mask)`` tensor that
   the S2D network consumes.
 """
@@ -61,11 +61,11 @@ def rasterise_hints(
 
     Returns:
         ``(T-1, 3, H, W)`` tensor whose channels are ``(u, v, mask)``.
-        ``u`` and ``v`` are zero outside hint locations; ``mask`` is 1
+        ``u`` and ``v`` are zero outside hint locations.  ``mask`` is 1
         at hint locations and 0 elsewhere.
     """
     if height <= 0 or width <= 0:
-        raise ValueError(f"height/width must be positive; got {height}x{width}")
+        raise ValueError(f"height/width must be positive, got {height}x{width}")
     n_pairs = len(hints)
     out = torch.zeros((n_pairs, 3, height, width), dtype=torch.float32, device=device)
     for t, pair_hints in enumerate(hints):
@@ -89,7 +89,7 @@ def sample_random_trajectories(
     For each adjacent pair, we pick ``num_points`` random pixel
     coordinates (uniformly in the spatial domain) and record their
     flow vector.  These hints simulate the user-supplied trajectories
-    that drive inference; during training they let the S2D net learn
+    that drive inference.  During training they let the S2D net learn
     to densify partial hints.
 
     Args:
@@ -101,7 +101,7 @@ def sample_random_trajectories(
         ``T-1`` lists of :class:`SparseHint`.
     """
     if flow_fwd.dim() != 4 or flow_fwd.shape[1] != 2:
-        raise ValueError(f"flow_fwd must be (T-1, 2, H, W); got {tuple(flow_fwd.shape)}")
+        raise ValueError(f"flow_fwd must be (T-1, 2, H, W), got {tuple(flow_fwd.shape)}")
     n_pairs, _, h, w = flow_fwd.shape
     g = torch.Generator(device="cpu")
     if seed is not None:

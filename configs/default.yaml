@@ -1,4 +1,4 @@
-# Default base config — the trajectory-WebVid recipe inherits from this
+# Default base config. The trajectory-WebVid recipe inherits from this
 # (see ``configs/trajectory_webvid.yaml``).  All numbers reflect the
 # paper's reported defaults (Section 5.1, Appendix D).
 

@@ -50,7 +50,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    base = load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    base = (
+        load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    )
     user = load_config(args.config)
     cli = OmegaConf.from_dotlist(list(args.overrides))
     cfg = merge_configs(base, user, cli)

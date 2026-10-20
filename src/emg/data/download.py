@@ -2,7 +2,7 @@
 
 WebVid-10M is **not** publicly hosted any longer (Shutterstock takedown,
 late 2024).  This module deliberately does **not** try to download the
-videos themselves; instead, it provides utilities that:
+videos themselves.  Instead, it provides utilities that:
 
 * Validate a user-supplied CSV manifest.
 * Stream-download the actual MP4s from the URLs *the user supplies*
@@ -37,7 +37,7 @@ PORTRAIT_DATASET_INFO: dict[str, dict[str, str]] = {
     },
     "CelebV-HQ": {
         "homepage": "https://celebv-hq.github.io/",
-        "note": "Use the official `celebv-hq` downloader; YouTube IDs are gated by ToS.",
+        "note": "Use the official `celebv-hq` downloader.  YouTube IDs are gated by ToS.",
     },
 }
 
@@ -60,7 +60,7 @@ def validate_webvid_manifest(manifest_path: str | os.PathLike[str]) -> int:
         reader = csv.DictReader(fh)
         if not reader.fieldnames or "videoid" not in reader.fieldnames:
             raise ValueError(
-                f"Manifest must have a 'videoid' column; got fieldnames={reader.fieldnames}"
+                f"Manifest must have a 'videoid' column, got fieldnames={reader.fieldnames}"
             )
         for row in reader:
             n_total += 1

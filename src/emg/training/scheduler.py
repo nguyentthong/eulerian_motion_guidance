@@ -1,8 +1,8 @@
 """Learning-rate schedulers used by the trainer.
 
 We support cosine, linear-warmup-cosine, and constant schedules.  The
-paper does not specify which schedule it uses; the trainer defaults to
-constant learning rate matching the original paper's lr=2e-5 reading.
+paper does not specify which schedule it uses, so the trainer defaults to
+a constant learning rate of 2e-5.
 """
 
 from __future__ import annotations

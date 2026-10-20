@@ -26,7 +26,7 @@ __all__ = ["RAFTFlowEstimator", "build_raft_estimator"]
 
 _log = get_logger()
 
-# Default ImageNet stats — RAFT in torchvision expects values in [-1, 1].
+# Normalisation stats. RAFT in torchvision expects values in [-1, 1].
 _RAFT_MEAN = (0.5, 0.5, 0.5)
 _RAFT_STD = (0.5, 0.5, 0.5)
 
@@ -46,6 +46,9 @@ class RAFTFlowEstimator(nn.Module):
     Attributes:
         size: Spatial size at which RAFT is run.
     """
+
+    mean: Tensor
+    std: Tensor
 
     def __init__(
         self,
@@ -71,7 +74,7 @@ class RAFTFlowEstimator(nn.Module):
         else:  # pragma: no cover - reserved for future weights
             raise ValueError(f"Unknown RAFT weights tag: {weights}")
 
-        _log.info("Loading RAFT-Large (Things) weights — frozen.")
+        _log.info("Loading RAFT-Large (Things) weights (frozen).")
         self.model = raft_large(weights=wts, progress=False)
         self.model.eval()
         for p in self.model.parameters():
@@ -108,7 +111,7 @@ class RAFTFlowEstimator(nn.Module):
         """
         if image1.shape != image2.shape or image1.dim() != 4 or image1.shape[1] != 3:
             raise ValueError(
-                f"image1/2 must be matching (N, 3, H, W); got "
+                f"image1/2 must be matching (N, 3, H, W), got "
                 f"{tuple(image1.shape)} vs {tuple(image2.shape)}"
             )
         h_src, w_src = image1.shape[-2:]
@@ -128,19 +131,18 @@ class RAFTFlowEstimator(nn.Module):
         x2 = self._normalise(x2.clamp(0.0, 1.0))
 
         flow_predictions = self.model(x1, x2, num_flow_updates=self.num_flow_updates)
-        # torchvision returns a list; the last entry is the highest-quality flow.
+        # torchvision returns a list whose last entry is the highest-quality flow.
         flow = flow_predictions[-1] if isinstance(flow_predictions, list) else flow_predictions
 
         # Rescale flow back to original resolution.
         if (h_src, w_src) != (self.size, self.size):
-            flow = F.interpolate(
-                flow, size=(h_src, w_src), mode="bilinear", align_corners=True
-            )
+            flow = F.interpolate(flow, size=(h_src, w_src), mode="bilinear", align_corners=True)
             sx = w_src / self.size
             sy = h_src / self.size
             scale = flow.new_tensor([sx, sy]).view(1, 2, 1, 1)
             flow = flow * scale
-        return flow
+        out: Tensor = flow
+        return out
 
 
 def build_raft_estimator(

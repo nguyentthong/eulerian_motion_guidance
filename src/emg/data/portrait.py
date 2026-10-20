@@ -2,9 +2,9 @@
 
 Supports two layouts in their public form:
 
-* **VFHQ** — directories of ``{seq}/{frame}.jpg`` plus a JSON metadata
+* **VFHQ**: directories of ``{seq}/{frame}.jpg`` plus a JSON metadata
   file.
-* **CelebV-HQ** — flat directory of MP4 clips.
+* **CelebV-HQ**: flat directory of MP4 clips.
 
 Both yield a ``(T, 3, H, W)`` clip plus per-frame facial landmarks (478
 points from MediaPipe Face Mesh) when the optional MediaPipe / FaceAlignment
@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -43,7 +44,9 @@ class _PortraitItem:
 class _LandmarkExtractor:
     """Wrap MediaPipe / FaceAlignment landmark extraction with a graceful fallback."""
 
-    def __init__(self, backend: Literal["mediapipe", "face_alignment", "none"] = "mediapipe") -> None:
+    def __init__(
+        self, backend: Literal["mediapipe", "face_alignment", "none"] = "mediapipe"
+    ) -> None:
         self.backend = backend
         self._impl: Any | None = None
         if backend == "mediapipe":
@@ -56,7 +59,7 @@ class _LandmarkExtractor:
                     refine_landmarks=False,
                 )
             except ImportError:
-                _log.warning("MediaPipe not installed; landmarks will be empty.")
+                _log.warning("MediaPipe not installed, landmarks will be empty.")
                 self.backend = "none"
         elif backend == "face_alignment":
             try:
@@ -66,10 +69,10 @@ class _LandmarkExtractor:
                     face_alignment.LandmarksType.TWO_D, device="cpu"
                 )
             except ImportError:
-                _log.warning("face-alignment not installed; landmarks will be empty.")
+                _log.warning("face-alignment not installed, landmarks will be empty.")
                 self.backend = "none"
 
-    def extract(self, frames: np.ndarray) -> list[np.ndarray]:
+    def extract(self, frames: npt.NDArray[Any]) -> list[npt.NDArray[Any]]:
         """Extract landmarks from a ``(T, H, W, 3)`` uint8 array.
 
         Returns:
@@ -77,13 +80,16 @@ class _LandmarkExtractor:
         """
         if self.backend == "none" or self._impl is None:
             return [np.empty((0, 2), dtype=np.float32) for _ in range(frames.shape[0])]
-        out: list[np.ndarray] = []
+        out: list[npt.NDArray[Any]] = []
         if self.backend == "mediapipe":
             for fr in frames:
                 res = self._impl.process(fr)
                 if res.multi_face_landmarks:
                     pts = np.array(
-                        [[lm.x * fr.shape[1], lm.y * fr.shape[0]] for lm in res.multi_face_landmarks[0].landmark],
+                        [
+                            [lm.x * fr.shape[1], lm.y * fr.shape[0]]
+                            for lm in res.multi_face_landmarks[0].landmark
+                        ],
                         dtype=np.float32,
                     )
                 else:
@@ -92,7 +98,11 @@ class _LandmarkExtractor:
         else:  # face_alignment
             for fr in frames:
                 pts = self._impl.get_landmarks(fr)
-                out.append(np.asarray(pts[0], dtype=np.float32) if pts else np.empty((0, 2), dtype=np.float32))
+                out.append(
+                    np.asarray(pts[0], dtype=np.float32)
+                    if pts
+                    else np.empty((0, 2), dtype=np.float32)
+                )
         return out
 
 
@@ -108,7 +118,7 @@ def _list_videos(root: Path) -> list[_PortraitItem]:
 
 
 def _landmark_velocity_to_hints(
-    lms_per_frame: list[np.ndarray],
+    lms_per_frame: list[npt.NDArray[Any]],
     *,
     height: int,
     width: int,

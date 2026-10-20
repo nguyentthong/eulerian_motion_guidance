@@ -2,8 +2,8 @@
 
 Every metric is a single function that takes a small set of well-typed
 tensors and returns a scalar Python ``float``.  Heavy backbones are
-loaded *lazily* — the module imports cleanly even if (say) ``insightface``
-is missing; only the metrics that depend on it will fail.
+loaded *lazily*, so the module imports cleanly even if (say) ``insightface``
+is missing.  Only the metrics that depend on it will fail.
 
 Each function carries a docstring referencing the paper's metric name
 (LPIPS, FID, FVD, CLIP-Cons, E_warp, CPBD, ArcFace).
@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import Tensor
 
@@ -46,12 +47,10 @@ def _validate_videos(*videos: Tensor) -> tuple[int, int, int, int, int]:
         raise ValueError("at least one video tensor required")
     ref = videos[0]
     if ref.dim() != 5 or ref.shape[2] != 3:
-        raise ValueError(f"videos must be (B, T, 3, H, W); got {tuple(ref.shape)}")
+        raise ValueError(f"videos must be (B, T, 3, H, W), got {tuple(ref.shape)}")
     for v in videos[1:]:
         if v.shape != ref.shape:
-            raise ValueError(
-                f"video shapes must match; got {tuple(v.shape)} vs {tuple(ref.shape)}"
-            )
+            raise ValueError(f"video shapes must match, got {tuple(v.shape)} vs {tuple(ref.shape)}")
     b, t, c, h, w = ref.shape
     return b, t, c, h, w
 
@@ -88,7 +87,7 @@ def compute_lpips(
         device: Torch device for the LPIPS network.
 
     Returns:
-        Mean LPIPS distance in ``[0, ∞)`` — lower is better.
+        Mean LPIPS distance in ``[0, ∞)``, lower is better.
     """
     import lpips  # type: ignore[import-not-found]
 
@@ -129,7 +128,7 @@ def compute_fid(
 
     Computed at frame level via :mod:`clean-fid`.  The function spills
     frames to disk under ``workdir`` because ``clean-fid``'s API is
-    directory-based; pass an explicit path for reproducibility.
+    directory-based.  Pass an explicit path for reproducibility.
 
     Args:
         pred: ``(B, T, 3, H, W)`` predicted videos.
@@ -138,7 +137,7 @@ def compute_fid(
         mode: ``clean-fid`` mode (``"clean"`` is the default in the paper).
 
     Returns:
-        FID score — lower is better.
+        FID score, lower is better.
     """
     from cleanfid import fid as cfid  # type: ignore[import-not-found]
 
@@ -166,33 +165,35 @@ def _i3d_features(videos: Tensor, device: str | torch.device) -> Tensor:
 
     We rely on ``torchvision`` 's `r3d_18` Kinetics-400 model as a
     serviceable I3D substitute when the canonical I3D weights are not
-    available.  This keeps the metric self-contained; if a user wants
+    available.  This keeps the metric self-contained.  If a user wants
     the *exact* paper figure they should plug in their preferred I3D
     implementation by overriding this helper.
 
     Note:
-        Author's interpretation — flagged in :func:`compute_fvd`'s
+        Author's interpretation, flagged in :func:`compute_fvd`'s
         docstring.
     """
     from torchvision.models.video import R3D_18_Weights, r3d_18
 
     weights = R3D_18_Weights.KINETICS400_V1
     model = r3d_18(weights=weights).eval().to(device)
-    # Strip classification head — we want the penultimate features.
+    # Strip classification head, we want the penultimate features.
     model.fc = torch.nn.Identity()  # type: ignore[assignment]
 
     transform = weights.transforms()
 
     b, t, _, _, _ = videos.shape
-    # r3d_18 expects (B, 3, T, H, W) at 112x112; clean transforms handle that.
+    # r3d_18 expects (B, 3, T, H, W) at 112x112.  Clean transforms handle that.
     vids = videos.permute(0, 2, 1, 3, 4).contiguous()  # (B, 3, T, H, W)
     proc = transform(vids).to(device)
     with torch.no_grad():
-        feats = model(proc)
+        feats: Tensor = model(proc)
     return feats.float().cpu()
 
 
-def _frechet_distance(mu1: np.ndarray, sigma1: np.ndarray, mu2: np.ndarray, sigma2: np.ndarray) -> float:
+def _frechet_distance(
+    mu1: npt.NDArray[Any], sigma1: npt.NDArray[Any], mu2: npt.NDArray[Any], sigma2: npt.NDArray[Any]
+) -> float:
     """Numerically-stable Frechet distance between two Gaussians."""
     from scipy import linalg  # type: ignore[import-not-found]
 
@@ -212,7 +213,7 @@ def compute_fvd(
     """Frechet Video Distance between predicted and GT video distributions.
 
     Note:
-        Author's interpretation — the canonical FVD uses the Kinetics
+        Author's interpretation.  The canonical FVD uses the Kinetics
         I3D checkpoint from the original Inflated-3D paper.  We default
         to torchvision's ``r3d_18`` Kinetics-400 weights for portability
         (the paper does not pin a specific implementation).  Plug in
@@ -224,14 +225,14 @@ def compute_fvd(
         device: Torch device for the feature extractor.
 
     Returns:
-        FVD score — lower is better.
+        FVD score, lower is better.
     """
     _validate_videos(pred, gt)
     f_pred = _i3d_features(pred, device).numpy()
     f_gt = _i3d_features(gt, device).numpy()
 
     if f_pred.shape[0] < 2 or f_gt.shape[0] < 2:
-        # FVD with 1 sample is undefined; return frame-mean L2 instead.
+        # FVD with 1 sample is undefined, so return frame-mean L2 instead.
         return float(np.linalg.norm(f_pred.mean(0) - f_gt.mean(0)))
 
     mu_p, mu_g = f_pred.mean(0), f_gt.mean(0)
@@ -260,7 +261,7 @@ def compute_clip_consistency(
         \\text{CLIP-Cons} = \\frac{1}{T-1} \\sum_{t=0}^{T-2}
             \\cos\\bigl(\\phi(I_t), \\phi(I_{t+1})\\bigr).
 
-    Higher is better — values close to 1.0 indicate temporally
+    Higher is better.  Values close to 1.0 indicate temporally
     consistent semantics.
 
     Args:
@@ -269,7 +270,7 @@ def compute_clip_consistency(
         device: Torch device for the CLIP encoder.
 
     Returns:
-        Mean cosine similarity — higher is better.
+        Mean cosine similarity, higher is better.
     """
     try:
         import open_clip  # type: ignore[import-not-found]
@@ -337,7 +338,7 @@ def compute_warping_error(
         device: Torch device.
 
     Returns:
-        Mean warping error in ``[0, 1]`` — lower is better.
+        Mean warping error in ``[0, 1]``, lower is better.
     """
     b, t, _, h, w = _validate_videos(video)
     if t < 2:
@@ -368,7 +369,7 @@ def compute_warping_error(
 # --------------------------------------------------------------------------- #
 
 
-def _cpbd_single(image: np.ndarray) -> float:
+def _cpbd_single(image: npt.NDArray[Any]) -> float:
     """A faithful CPBD (Narvekar & Karam, 2011) implementation.
 
     The algorithm:
@@ -377,9 +378,9 @@ def _cpbd_single(image: np.ndarray) -> float:
     2. For each edge pixel, measure the local edge width.
     3. Compute the CPBD as ``P(blur ≤ W_JNB)`` integrated over edge widths.
 
-    We follow the reference MATLAB implementation closely; ``W_JNB``
+    We follow the reference MATLAB implementation closely.  ``W_JNB``
     (just-noticeable-blur width) is set per local contrast.  Return
-    value lies in ``[0, 1]`` — higher is sharper.
+    value lies in ``[0, 1]``, higher is sharper.
 
     Note:
         Author's interpretation.  Originally derived from the public
@@ -387,9 +388,7 @@ def _cpbd_single(image: np.ndarray) -> float:
     """
     if image.ndim == 3:
         # RGB -> luma (Rec. 601).
-        image = (
-            0.299 * image[..., 0] + 0.587 * image[..., 1] + 0.114 * image[..., 2]
-        )
+        image = 0.299 * image[..., 0] + 0.587 * image[..., 1] + 0.114 * image[..., 2]
     image = image.astype(np.float32)
     if image.max() > 1.5:
         image = image / 255.0
@@ -414,8 +413,8 @@ def _cpbd_single(image: np.ndarray) -> float:
             patch_edges = edges[by : by + block, bx : bx + block]
             if patch.size == 0 or not patch_edges.any():
                 continue
-            contrast = float(patch.max() - patch.min())
-            # JNB width as per Narvekar & Karam; piecewise per contrast.
+            contrast = float(np.max(patch)) - float(np.min(patch))
+            # JNB width as per Narvekar & Karam, piecewise per contrast.
             w_jnb = 5.0 if contrast < 50.0 / 255.0 else 3.0
             # Edge widths estimated as the local 2-tap gradient ratio.
             edge_widths = np.where(
@@ -440,7 +439,7 @@ def compute_cpbd(video: Tensor) -> float:
         video: ``(B, T, 3, H, W)`` in ``[0, 1]``.
 
     Returns:
-        Mean CPBD in ``[0, 1]`` — higher is better.
+        Mean CPBD in ``[0, 1]``, higher is better.
     """
     _validate_videos(video)
     video = video.clamp(0, 1)
@@ -469,31 +468,30 @@ def compute_arcface(
         pred_video: ``(T, 3, H, W)`` generated frames in ``[0, 1]``.
         reference_image: ``(3, H, W)`` reference image in ``[0, 1]``.
         device: Torch device hint (insightface chooses providers
-            internally; mostly informational here).
+            internally, mostly informational here).
 
     Returns:
-        Mean cosine similarity in ``[-1, 1]`` — higher is better.
+        Mean cosine similarity in ``[-1, 1]``, higher is better.
     """
     import insightface  # type: ignore[import-not-found]
 
     if pred_video.dim() != 4 or pred_video.shape[1] != 3:
-        raise ValueError(
-            f"pred_video must be (T, 3, H, W); got {tuple(pred_video.shape)}"
-        )
+        raise ValueError(f"pred_video must be (T, 3, H, W), got {tuple(pred_video.shape)}")
 
     app = insightface.app.FaceAnalysis(name="buffalo_l")
     app.prepare(ctx_id=0 if "cuda" in str(device) else -1, det_size=(640, 640))
 
-    def _embed(img: np.ndarray) -> np.ndarray | None:
+    def _embed(img: npt.NDArray[Any]) -> npt.NDArray[Any] | None:
         faces = app.get(img)
         if not faces:
             return None
-        return faces[0].normed_embedding.astype(np.float32)
+        emb: npt.NDArray[Any] = faces[0].normed_embedding.astype(np.float32)
+        return emb
 
     ref_np = (reference_image.clamp(0, 1) * 255).permute(1, 2, 0).cpu().numpy().astype(np.uint8)
     ref_emb = _embed(ref_np)
     if ref_emb is None:
-        _log.warning("No face detected in reference image — ArcFace returns 0.")
+        _log.warning("No face detected in reference image, ArcFace returns 0.")
         return 0.0
 
     sims: list[float] = []
@@ -514,7 +512,7 @@ def compute_arcface(
 
 
 def metric_names() -> Iterable[str]:
-    """Return the list of all metric names — convenience for tooling."""
+    """Return the list of all metric names, for tooling convenience."""
     return (
         "lpips",
         "fid",

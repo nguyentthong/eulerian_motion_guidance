@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Download the frozen backbones used by EMG.
 
-* Stable Video Diffusion XT — pulled via :mod:`huggingface_hub`.  Set
+* Stable Video Diffusion XT, pulled via :mod:`huggingface_hub`.  Set
   ``HF_TOKEN`` if access is gated.
-* RAFT-Large (FlyingThings3D weights) — pulled via
+* RAFT-Large (FlyingThings3D weights), pulled via
   :mod:`torchvision.models.optical_flow`.
 
 Example:
@@ -31,9 +31,7 @@ def parse_args() -> argparse.Namespace:
         help="HuggingFace model id for SVD",
     )
     p.add_argument("--cache-dir", type=Path, default=None, help="HF cache directory")
-    p.add_argument(
-        "--skip-svd", action="store_true", help="Skip SVD (useful if already cached)"
-    )
+    p.add_argument("--skip-svd", action="store_true", help="Skip SVD (useful if already cached)")
     p.add_argument("--skip-raft", action="store_true", help="Skip RAFT")
     return p.parse_args()
 

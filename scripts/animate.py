@@ -48,14 +48,18 @@ _log = get_logger()
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--image", type=Path, required=True)
     p.add_argument("--trajectories", type=Path, required=True)
     p.add_argument("--checkpoint", type=Path, required=True)
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--default-config", type=Path, default=Path("configs/default.yaml"))
     p.add_argument("--output", type=Path, default=Path("./outputs/animation.mp4"))
-    p.add_argument("--num-frames", type=int, default=None, help="Override config.inference.num_frames")
+    p.add_argument(
+        "--num-frames", type=int, default=None, help="Override config.inference.num_frames"
+    )
     p.add_argument("overrides", nargs="*")
     return p.parse_args()
 
@@ -72,7 +76,7 @@ def load_trajectories(path: Path, *, n_pairs: int) -> list[list[SparseHint]]:
     if not isinstance(payload, list):
         raise ValueError(f"Bad trajectories file {path}: expected list at top level")
     if payload and isinstance(payload[0], dict):
-        # Single list — replicate across all pairs.
+        # Single list: replicate across all pairs.
         single = [SparseHint(**p) for p in payload]
         return [list(single) for _ in range(n_pairs)]
     out: list[list[SparseHint]] = []
@@ -84,7 +88,9 @@ def load_trajectories(path: Path, *, n_pairs: int) -> list[list[SparseHint]]:
 def main() -> int:
     args = parse_args()
 
-    base = load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    base = (
+        load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    )
     user = load_config(args.config)
     cli = OmegaConf.from_dotlist(list(args.overrides))
     cfg = merge_configs(base, user, cli)
@@ -94,9 +100,7 @@ def main() -> int:
 
     res = int(cfg.training.resolution)
     image = load_image(args.image, size=res)
-    trajectories = load_trajectories(
-        args.trajectories, n_pairs=int(cfg.inference.num_frames) - 1
-    )
+    trajectories = load_trajectories(args.trajectories, n_pairs=int(cfg.inference.num_frames) - 1)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     block_channels = tuple(int(c) for c in cfg.model.flow_controlnet.block_channels)

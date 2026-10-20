@@ -20,7 +20,7 @@ For long sequences (paper default ``T = 100``) we chain the natively
 14-frame SVD-XT pipeline: the last frame of one window seeds the next.
 
 When :class:`emg.models.svd_wrapper.SVDBackbone` is unavailable (CI,
-unit tests), a *flow-only* mode is selected automatically — the warped
+unit tests), a *flow-only* mode is selected automatically and the warped
 input image is returned as the next frame.  This still exercises the
 animator's logic and the S2D path end-to-end.
 """
@@ -31,13 +31,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import torch
-import torch.nn as nn
 from torch import Tensor
 
 from emg.data.trajectory_utils import SparseHint, rasterise_hints
 from emg.models.flow_controlnet import FlowControlNet
 from emg.models.motion_adapter import MotionAdapter
 from emg.models.s2d import SparseToDenseNet
+from emg.models.svd_wrapper import SVDBackbone
 from emg.motion.eulerian import rescale_flow
 from emg.motion.warping import backward_warp
 from emg.utils.logging import get_logger
@@ -84,7 +84,7 @@ class AutoregressiveOutput:
         frames: ``(T, 3, H, W)`` float tensor in ``[0, 1]``.
         flows: ``(T-1, 2, H, W)`` predicted Eulerian flows used to drive
             generation.  Useful for debugging and visualisation.
-        latents: Optional ``(T, C_z, H_z, W_z)`` latent stack — only
+        latents: Optional ``(T, C_z, H_z, W_z)`` latent stack, only
             populated when running with an SVD backbone.
     """
 
@@ -113,7 +113,7 @@ class AutoregressiveAnimator:
         s2d: SparseToDenseNet,
         motion_adapter: MotionAdapter,
         flow_controlnet: FlowControlNet,
-        svd_backbone: nn.Module | None = None,
+        svd_backbone: SVDBackbone | None = None,
         config: InferenceConfig | None = None,
         device: str | torch.device = "cpu",
     ) -> None:
@@ -139,7 +139,7 @@ class AutoregressiveAnimator:
 
         Implements Eq. 13.  ``trajectories[t]`` lists the user-supplied
         ``(x, y, u, v)`` hints describing motion from frame ``t`` to
-        ``t+1``.  The S2D module densifies these into Eulerian flows; the
+        ``t+1``.  The S2D module densifies these into Eulerian flows and the
         autoregressive chain then warps successive latents.
 
         Args:
@@ -150,14 +150,12 @@ class AutoregressiveAnimator:
             :class:`AutoregressiveOutput`.
         """
         if image.dim() != 3 or image.shape[0] != 3:
-            raise ValueError(f"image must be (3, H, W); got {tuple(image.shape)}")
+            raise ValueError(f"image must be (3, H, W), got {tuple(image.shape)}")
         n_pairs = self.cfg.num_frames - 1
         if len(trajectories) < n_pairs:
-            # Pad with empty trajectories — the S2D network sees an
+            # Pad with empty trajectories.  The S2D network sees an
             # all-zero hint and learns to "stay put".
-            trajectories = list(trajectories) + [
-                [] for _ in range(n_pairs - len(trajectories))
-            ]
+            trajectories = list(trajectories) + [[] for _ in range(n_pairs - len(trajectories))]
         elif len(trajectories) > n_pairs:
             trajectories = trajectories[:n_pairs]
 
@@ -166,9 +164,7 @@ class AutoregressiveAnimator:
         image = image.to(device).clamp(0.0, 1.0)
 
         # 1. Predict per-step Eulerian flows from the sparse hints.
-        sparse = rasterise_hints(
-            trajectories, height=h, width=w, device=device
-        )  # (T-1, 3, H, W)
+        sparse = rasterise_hints(trajectories, height=h, width=w, device=device)  # (T-1, 3, H, W)
         flows = self.s2d(sparse)  # (T-1, 2, H, W)
 
         # 2. Run the autoregressive sampling chain.
@@ -182,16 +178,14 @@ class AutoregressiveAnimator:
     # -------------------------------- chains --------------------------------
 
     @torch.no_grad()
-    def _flow_only_chain(
-        self, image: Tensor, flows: Tensor
-    ) -> tuple[Tensor, None]:
-        """Naïve flow-only chain — useful when SVD weights are absent.
+    def _flow_only_chain(self, image: Tensor, flows: Tensor) -> tuple[Tensor, None]:
+        """Naive flow-only chain, useful when SVD weights are absent.
 
         Each step warps the previous frame by the predicted Eulerian
         flow.  This still demonstrates Eq. 13's *autoregressive*
         structure and gives a sanity output that respects the motion
         prior.  The frames are not denoised, so visual fidelity is
-        clearly inferior to the SVD path; this mode is for tests, demos
+        clearly inferior to the SVD path.  This mode is for tests, demos
         without weights, and quick iteration.
         """
         n_pairs = flows.shape[0]
@@ -205,9 +199,7 @@ class AutoregressiveAnimator:
         return frames, None
 
     @torch.no_grad()
-    def _svd_chain(
-        self, image: Tensor, flows: Tensor
-    ) -> tuple[Tensor, Tensor]:
+    def _svd_chain(self, image: Tensor, flows: Tensor) -> tuple[Tensor, Tensor]:
         """Full SVD-XT chain (paper default).
 
         We chain native 14-frame windows: the last frame of window ``k``
@@ -230,7 +222,7 @@ class AutoregressiveAnimator:
         device = self.device
 
         h, w = image.shape[-2:]
-        latent_t = backbone.encode_image(  # type: ignore[operator]
+        latent_t = backbone.encode_image(
             (image.unsqueeze(0) * 2 - 1).to(device)
         )  # (1, C_z, H_z, W_z)
 
@@ -242,7 +234,7 @@ class AutoregressiveAnimator:
             warped = backward_warp(latent_t, f_lat, padding_mode="border")
             cn_out = self.flow_controlnet(warped, f_lat)
             # Residual blending.  The paper's adapter consumes the
-            # warped latent + ControlNet residual; in flow-only mode
+            # warped latent + ControlNet residual.  In flow-only mode
             # without explicit denoising we approximate ``p(z_t | ·)``
             # with its mode (deterministic).
             mid = cn_out.mid_block_residual.mean(dim=1, keepdim=True)
@@ -265,9 +257,7 @@ class AutoregressiveAnimator:
         out: list[Tensor] = []
         for start in range(0, latents.shape[0], win):
             chunk = latents[start : start + win]
-            decoded = backbone.decode_latent(  # type: ignore[operator]
-                chunk, num_frames=chunk.shape[0]
-            )
+            decoded = backbone.decode_latent(chunk, num_frames=chunk.shape[0])
             decoded = (decoded.clamp(-1, 1) + 1.0) / 2.0
             out.append(decoded)
         return torch.cat(out, dim=0)
@@ -282,7 +272,7 @@ class AutoregressiveAnimator:
         s2d: SparseToDenseNet,
         motion_adapter: MotionAdapter,
         flow_controlnet: FlowControlNet,
-        svd_backbone: nn.Module | None = None,
+        svd_backbone: SVDBackbone | None = None,
         config: InferenceConfig | None = None,
         device: str | torch.device = "cpu",
     ) -> AutoregressiveAnimator:

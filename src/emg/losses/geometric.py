@@ -3,9 +3,9 @@
 This module implements the three numerical primitives that constitute
 the paper's main technical contribution:
 
-* :func:`cycle_consistency_energy` — Eq. 8.
-* :func:`dynamic_occlusion_mask`   — Eq. 9.
-* :func:`geometric_consistency_loss` — Eq. 10.
+* :func:`cycle_consistency_energy` (Eq. 8)
+* :func:`dynamic_occlusion_mask` (Eq. 9)
+* :func:`geometric_consistency_loss` (Eq. 10)
 
 Defaults match the paper:  ``α₁ = 0.01``, ``α₂ = 0.5``, ``λ_geo`` is
 applied externally to combine with the diffusion loss.
@@ -39,10 +39,10 @@ class GeometricLossOutput:
     """Bundle returned by :class:`BidirectionalGeometricConsistency`.
 
     Attributes:
-        loss: Scalar tensor — the masked, normalised L1 loss of Eq. 10.
-        mask: ``(B, 1, H, W)`` float tensor in ``{0, 1}`` — the binary
+        loss: Scalar tensor holding the masked, normalised L1 loss of Eq. 10.
+        mask: ``(B, 1, H, W)`` float tensor in ``{0, 1}``, the binary
             validity mask :math:`M_{occ}` (1 = valid, 0 = occluded).
-        cycle_energy: ``(B, 1, H, W)`` float tensor — the squared
+        cycle_energy: ``(B, 1, H, W)`` float tensor holding the squared
             residual ``E_cycle``.
     """
 
@@ -78,7 +78,7 @@ def cycle_consistency_energy(flow_fwd: Tensor, flow_bwd: Tensor) -> Tensor:
             f"{tuple(flow_bwd.shape)} must have the same shape"
         )
     if flow_fwd.dim() != 4 or flow_fwd.shape[1] != 2:
-        raise ValueError(f"flows must be (B, 2, H, W); got {tuple(flow_fwd.shape)}")
+        raise ValueError(f"flows must be (B, 2, H, W), got {tuple(flow_fwd.shape)}")
 
     sampled_bwd = sample_flow_at_flow(flow_bwd, flow_fwd)
     residual = flow_fwd + sampled_bwd  # (B, 2, H, W)
@@ -109,8 +109,8 @@ def dynamic_occlusion_mask(
 
     where the indicator ``1[·]`` is 1 inside the (geometrically valid)
     region and 0 in the occluded region.  ``α₁`` provides a relative
-    tolerance that scales with motion magnitude — strong motion is
-    expected to incur a larger absolute residual; ``α₂`` is the static
+    tolerance that scales with motion magnitude, since strong motion is
+    expected to incur a larger absolute residual.  ``α₂`` is the static
     noise floor that prevents over-aggressive masking on plain regions
     (see Appendix D).
 
@@ -125,7 +125,7 @@ def dynamic_occlusion_mask(
         and ``energy`` is the unmasked cycle energy ``(B, 1, H, W)``.
     """
     if alpha1 < 0 or alpha2 < 0:
-        raise ValueError(f"alpha1 and alpha2 must be >= 0; got {alpha1=}, {alpha2=}")
+        raise ValueError(f"alpha1 and alpha2 must be >= 0, got {alpha1=}, {alpha2=}")
 
     energy = cycle_consistency_energy(flow_fwd, flow_bwd)
     sampled_bwd = sample_flow_at_flow(flow_bwd, flow_fwd)
@@ -170,7 +170,7 @@ def geometric_consistency_loss(
         eps: Small constant added to the mask normaliser.
 
     Returns:
-        Scalar tensor — the spatially weighted L1.
+        Scalar tensor holding the spatially weighted L1.
     """
     if z_t.shape != z_t_plus_1.shape:
         raise ValueError(
@@ -185,7 +185,7 @@ def geometric_consistency_loss(
     if mask.shape[0] != z_t.shape[0] or mask.shape[-2:] != z_t.shape[-2:]:
         raise ValueError("mask must align with latents in batch and spatial dims")
     if mask.shape[1] != 1:
-        raise ValueError(f"mask must have a single channel; got {mask.shape[1]}")
+        raise ValueError(f"mask must have a single channel, got {mask.shape[1]}")
 
     warped = backward_warp(z_t, flow_fwd, mode="bilinear", padding_mode="zeros")
     diff = (warped - z_t_plus_1).abs()  # (B, C, H, W)
@@ -199,7 +199,7 @@ def geometric_consistency_loss(
 class BidirectionalGeometricConsistency(nn.Module):
     """``nn.Module`` wrapper bundling the three BGC primitives.
 
-    This is what the trainer actually consumes — instantiate once with
+    This is what the trainer actually consumes.  Instantiate it once with
     the chosen ``α₁, α₂``, then call ``forward(z_t, z_{t+1}, flow_fwd,
     flow_bwd)`` to get the masked loss together with diagnostic
     tensors.
@@ -269,11 +269,11 @@ class BidirectionalGeometricConsistency(nn.Module):
         else:
             if flow_fwd_for_loss.shape[-2:] != latent_size:
                 raise ValueError(
-                    f"flow_fwd_for_loss must match latent size {latent_size}; "
+                    f"flow_fwd_for_loss must match latent size {latent_size}, "
                     f"got {tuple(flow_fwd_for_loss.shape)}"
                 )
 
-        # Mask must also live on the latent grid; nearest-mode resize
+        # Mask must also live on the latent grid.  Nearest-mode resize
         # preserves the binary semantics.
         if mask_full.shape[-2:] != latent_size:
             mask_latent = nn.functional.interpolate(

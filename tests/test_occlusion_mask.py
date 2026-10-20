@@ -13,7 +13,7 @@ from emg.losses.geometric import (
 
 def test_zero_flows_yield_full_validity() -> None:
     """When forward and backward flows are zero everywhere, the cycle
-    energy is zero and the threshold is α₂ > 0; therefore every pixel
+    energy is zero and the threshold is α₂ > 0, so every pixel
     should be marked as valid (mask = 1)."""
     fwd = torch.zeros(2, 2, 8, 8)
     bwd = torch.zeros(2, 2, 8, 8)

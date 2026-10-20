@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -75,7 +76,11 @@ def _read_manifest(manifest_path: Path) -> list[_VideoRecord]:
                     page_dir=(row.get("page_dir") or None),
                     duration=duration,
                     name=(row.get("name") or None),
-                    extra={k: v for k, v in row.items() if k not in {"videoid", "video_id", "page_dir", "duration", "name"}},
+                    extra={
+                        k: v
+                        for k, v in row.items()
+                        if k not in {"videoid", "video_id", "page_dir", "duration", "name"}
+                    },
                 )
             )
     return out
@@ -87,7 +92,7 @@ def _decode_clip(
     num_frames: int,
     stride: int = 1,
     seed: int | None = None,
-) -> np.ndarray | None:
+) -> npt.NDArray[Any] | None:
     """Decode ``num_frames`` from the video at ``path`` with stride ``stride``.
 
     Args:
@@ -120,7 +125,8 @@ def _decode_clip(
         start = int(rng.integers(0, max_start + 1)) if max_start > 0 else 0
         idx = start + np.arange(num_frames) * stride
         idx = np.clip(idx, 0, total - 1)
-        return arr[idx]
+        clip: npt.NDArray[Any] = arr[idx]
+        return clip
 
     try:
         container = av.open(str(path))
@@ -129,7 +135,7 @@ def _decode_clip(
     try:
         stream = container.streams.video[0]
         stream.thread_type = "AUTO"
-        frames: list[np.ndarray] = []
+        frames: list[npt.NDArray[Any]] = []
         for frame in container.decode(stream):
             frames.append(frame.to_ndarray(format="rgb24"))
             if len(frames) >= 1024:
@@ -146,7 +152,8 @@ def _decode_clip(
     start = int(rng.integers(0, max_start + 1)) if max_start > 0 else 0
     idx = start + np.arange(num_frames) * stride
     idx = np.clip(idx, 0, total - 1)
-    return arr[idx]
+    clip = arr[idx]
+    return clip
 
 
 class WebVidDataset(Dataset[dict[str, Any]]):
@@ -190,7 +197,7 @@ class WebVidDataset(Dataset[dict[str, Any]]):
     def __len__(self) -> int:
         return len(self.records)
 
-    def _decode(self, idx: int) -> np.ndarray | None:
+    def _decode(self, idx: int) -> npt.NDArray[Any] | None:
         rec = self.records[idx]
         path = rec.resolve_path(self.video_root)
         return _decode_clip(
@@ -209,13 +216,11 @@ class WebVidDataset(Dataset[dict[str, Any]]):
                 break
             attempts += 1
             if attempts > 8:
-                raise RuntimeError(
-                    f"Failed to decode any video for index {idx} after 8 attempts"
-                )
+                raise RuntimeError(f"Failed to decode any video for index {idx} after 8 attempts")
             idx = (idx + 1) % len(self.records)
 
         clip = self.transform(arr)  # (T, 3, H, W) float
-        # Sparse hints (channel ``mask`` is zero by default; user can
+        # Sparse hints (channel ``mask`` is zero by default, user can
         # populate them via trajectory_utils).  We pre-allocate the
         # tensor here so collation is straightforward.
         hint = torch.zeros(

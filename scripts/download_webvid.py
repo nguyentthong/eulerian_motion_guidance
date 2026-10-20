@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Validate (and optionally summarise) a WebVid-10M CSV manifest.
 
-We do *not* download videos — the original WebVid-10M URLs are no
+We do *not* download videos because the original WebVid-10M URLs are no
 longer publicly hosted.  Use this script after acquiring videos through
-your own legitimate means; it walks the manifest and reports how many
+your own legitimate means.  It walks the manifest and reports how many
 records resolve to local files under ``--video-root``.
 
 Example:
@@ -24,7 +24,9 @@ from emg.data.download import stream_webvid_manifest, validate_webvid_manifest
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--manifest", required=True, type=Path, help="CSV manifest path")
     p.add_argument("--video-root", required=True, type=Path, help="Root directory for video files")
     p.add_argument("--json-out", type=Path, default=None, help="Optional health report JSON")

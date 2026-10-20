@@ -1,6 +1,6 @@
 """Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency.
 
-Reference implementation of Nguyen et al., MM '26.
+Reference implementation of Nguyen et al., ACM MM 2026 (arXiv:2605.06280).
 """
 
 from __future__ import annotations

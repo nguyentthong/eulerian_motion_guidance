@@ -1,6 +1,6 @@
 """Lightweight wrappers around :mod:`torch.distributed`.
 
-We deliberately do not lean on Accelerate as the only entry point —
+We deliberately do not lean on Accelerate as the only entry point:
 some users prefer raw DDP with ``torchrun``.  These helpers work with
 both and never import Accelerate at module import time.
 """

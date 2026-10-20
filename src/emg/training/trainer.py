@@ -7,15 +7,15 @@ loss computation.
 
 The training step implements the parallel-flow trick of Section 4.3:
 a single batched RAFT call yields all forward and backward flows at
-once; the BGC loss (Eq. 8–10) is then evaluated on that flow stack
+once.  The BGC loss (Eqs. 8-10) is then evaluated on that flow stack
 together with the diffusion loss in latent space.
 
 The trainer is also where the ablation knobs live:
 
-* ``motion.formulation`` — ``eulerian`` (default) or ``lagrangian``.
-* ``consistency.mode``   — ``none`` | ``forward_only`` | ``bidirectional``.
-* ``consistency.alpha1``, ``consistency.alpha2`` — Eq. 9 thresholds.
-* ``consistency.lambda_geo`` — weight on ``L_geo``.
+* ``motion.formulation``: ``eulerian`` (default) or ``lagrangian``.
+* ``consistency.mode``: ``none`` | ``forward_only`` | ``bidirectional``.
+* ``consistency.alpha1``, ``consistency.alpha2``: Eq. 9 thresholds.
+* ``consistency.lambda_geo``: weight on ``L_geo``.
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ from emg.losses.geometric import (
 from emg.models.flow_controlnet import FlowControlNet
 from emg.models.motion_adapter import MotionAdapter
 from emg.models.s2d import SparseToDenseNet
+from emg.models.svd_wrapper import SVDBackbone
 from emg.motion.eulerian import EulerianFlowSequence, rescale_flow
 from emg.motion.parallel_flow import (
     FlowEstimator,
@@ -67,6 +68,9 @@ class TrainerConfig:
         alpha2: Eq. 9 static noise floor.
         lambda_geo: Weight on ``L_geo`` (Eq. 10).
         learning_rate: AdamW LR (paper default 2e-5).
+        lr_schedule: Learning-rate schedule name (see
+            :func:`emg.training.scheduler.build_lr_scheduler`).
+        total_steps: Total optimisation steps, used by decaying schedules.
         weight_decay: AdamW weight decay.
         betas: AdamW betas.
         gradient_clip: Optional gradient-norm clip.
@@ -86,6 +90,8 @@ class TrainerConfig:
     alpha2: float = 0.5
     lambda_geo: float = 0.1
     learning_rate: float = 2.0e-5
+    lr_schedule: Literal["constant", "cosine", "linear_warmup_cosine"] = "constant"
+    total_steps: int = 100_000
     weight_decay: float = 0.01
     betas: tuple[float, float] = (0.9, 0.999)
     gradient_clip: float | None = 1.0
@@ -102,7 +108,7 @@ class TrainerConfig:
 class Trainer:
     """Train FlowControlNet + S2D + Motion Adapter end-to-end.
 
-    The trainer is intentionally framework-agnostic — it accepts an
+    The trainer is intentionally framework-agnostic.  It accepts an
     optional :class:`SVDBackbone` (or any module exposing the same
     surface) and a :class:`FlowEstimator`, so unit tests can swap them
     for tiny stubs.
@@ -112,7 +118,7 @@ class Trainer:
         motion_adapter: :class:`MotionAdapter`.
         flow_controlnet: :class:`FlowControlNet`.
         flow_estimator: Frozen flow estimator (paper: RAFT).
-        svd_backbone: Optional SVD backbone — if ``None``, the trainer
+        svd_backbone: Optional SVD backbone.  If ``None``, the trainer
             runs in *flow-only* mode (latents are taken directly from
             the input video at the same spatial size as the flow).  This
             mode is still useful to exercise the BGC loss in tests.
@@ -126,7 +132,7 @@ class Trainer:
         motion_adapter: MotionAdapter,
         flow_controlnet: FlowControlNet,
         flow_estimator: FlowEstimator,
-        svd_backbone: nn.Module | None = None,
+        svd_backbone: SVDBackbone | None = None,
         config: TrainerConfig | None = None,
     ) -> None:
         self.s2d = s2d
@@ -144,7 +150,8 @@ class Trainer:
         self.optimizer = self._build_optimizer()
         self.scheduler = build_lr_scheduler(
             self.optimizer,
-            schedule="constant",
+            schedule=self.cfg.lr_schedule,
+            total_steps=self.cfg.total_steps,
         )
 
         self.ema: EMAWeights | None = None
@@ -191,7 +198,7 @@ class Trainer:
         """
         video: Tensor = batch["video"]  # (B, T, 3, H, W) in [0, 1]
         if video.dim() != 5:
-            raise ValueError(f"video must be 5-D; got {tuple(video.shape)}")
+            raise ValueError(f"video must be 5-D, got {tuple(video.shape)}")
         b, t, c, h, w = video.shape
 
         # 1. Compute bidirectional Eulerian flow with one batched call.
@@ -208,8 +215,8 @@ class Trainer:
                 f"latent has {latent_t.shape[1]} pairs but flow has {flows.num_pairs}"
             )
 
-        # 3. ControlNet forward — purely to keep the path differentiable
-        # and exercise the trainable parameters; the residuals are not
+        # 3. ControlNet forward, purely to keep the path differentiable
+        # and exercise the trainable parameters.  The residuals are not
         # added back to a frozen U-Net here unless an :class:`SVDBackbone`
         # is supplied.  When the backbone is absent we simply use the
         # ControlNet's mid-block residual as a feature regulariser
@@ -225,7 +232,7 @@ class Trainer:
         cn_out = self.flow_controlnet(warped_latent, f_fwd_lat)
 
         # Diffusion loss surrogate when no SVD is attached: the warped
-        # latent should reconstruct latent_{t+1}; this is exactly the
+        # latent should reconstruct latent_{t+1}.  This is exactly the
         # SVD denoising objective conditioned on the predicted flow,
         # in expectation.
         target_lat = latent_t_plus_1.reshape_as(warped_latent)
@@ -244,7 +251,11 @@ class Trainer:
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward()
         if self.cfg.gradient_clip is not None:
-            params = list(self.s2d.parameters()) + list(self.motion_adapter.parameters()) + list(self.flow_controlnet.parameters())
+            params = (
+                list(self.s2d.parameters())
+                + list(self.motion_adapter.parameters())
+                + list(self.flow_controlnet.parameters())
+            )
             torch.nn.utils.clip_grad_norm_(params, self.cfg.gradient_clip)
         self.optimizer.step()
         self.scheduler.step()
@@ -283,7 +294,7 @@ class Trainer:
             # Treat the video itself as the "latent".
             latents = video
         else:
-            # Encode each frame; SVD wants [-1, 1] inputs.
+            # Encode each frame.  SVD wants [-1, 1] inputs.
             normalised = video * 2.0 - 1.0
             flat = normalised.reshape(b * t, c, h, w)
             with torch.no_grad():
@@ -325,10 +336,11 @@ class Trainer:
             from emg.motion.warping import sample_flow_at_flow
 
             sampled = sample_flow_at_flow(f_bwd, f_fwd)
-            thr = self.cfg.alpha1 * (
-                f_fwd.pow(2).sum(dim=1, keepdim=True)
-                + sampled.pow(2).sum(dim=1, keepdim=True)
-            ) + self.cfg.alpha2
+            thr = (
+                self.cfg.alpha1
+                * (f_fwd.pow(2).sum(dim=1, keepdim=True) + sampled.pow(2).sum(dim=1, keepdim=True))
+                + self.cfg.alpha2
+            )
             mask = (energy < thr).to(f_fwd.dtype)
         else:
             raise ValueError(f"Unknown consistency mode {self.cfg.consistency_mode}")
@@ -374,7 +386,7 @@ class Trainer:
 
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        # ``TrainerConfig`` is a slots dataclass; use ``asdict`` to
+        # ``TrainerConfig`` is a slots dataclass, so use ``asdict`` to
         # serialise it.  ``Path`` instances inside it serialise via str.
         cfg_dict = asdict(self.cfg)
         cfg_dict["ckpt_dir"] = str(cfg_dict["ckpt_dir"])

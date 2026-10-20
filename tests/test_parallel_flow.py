@@ -4,7 +4,7 @@ Three properties matter here:
 
 1.  The output has shape ``(B, T-1, 2, H, W)`` for both forward and
     backward flows.
-2.  The estimator is invoked exactly **once** — this is the whole point
+2.  The estimator is invoked exactly **once**, which is the whole point
     of Section 4.3.  We use a counting stub estimator to verify.
 3.  Forward and backward halves are correctly demultiplexed: a stub
     that returns the *first* image as the flow lets us test that the
@@ -52,7 +52,7 @@ def test_pair_construction_no_python_loops() -> None:
     """Forward and backward dyads should be assembled without Python-level
     iteration over ``T``.
 
-    The function under test uses pure tensor operations; we verify by
+    The function under test uses pure tensor operations.  We verify by
     sanity-checking the resulting shapes and contents.
     """
     b, t, c, h, w = 2, 5, 3, 8, 8
@@ -90,7 +90,7 @@ def test_parallel_flow_demuxes_correctly() -> None:
 
     Using ``_IdentityEstimator`` (which returns the first image as the
     flow), the forward output should equal ``V[:, :-1]`` and the backward
-    output should equal ``V[:, 1:]`` — modulo the (2, H, W) channel slice.
+    output should equal ``V[:, 1:]``, modulo the (2, H, W) channel slice.
     """
     b, t = 2, 4
     video = torch.rand(b, t, 3, 6, 6)

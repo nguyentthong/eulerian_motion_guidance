@@ -55,7 +55,7 @@ def load_config(path: str | os.PathLike[str]) -> DictConfig:
         raise FileNotFoundError(f"Config not found: {cfg_path}")
     cfg = OmegaConf.load(cfg_path)
     if not isinstance(cfg, DictConfig):
-        raise TypeError(f"Config root must be a mapping; got {type(cfg).__name__}")
+        raise TypeError(f"Config root must be a mapping, got {type(cfg).__name__}")
     OmegaConf.resolve(cfg)
     return cfg
 

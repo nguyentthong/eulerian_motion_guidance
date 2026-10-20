@@ -43,7 +43,7 @@ def test_backward_warp_translation() -> None:
 
     Place a bright pixel at column 2 and apply a uniform flow ``dx = -1``.
     Output pixel ``(2, 3)`` should sample ``feat(2, 3 + (-1)) = feat(2, 2)
-    = 1``; the original bright pixel location samples ``feat(2, 1) = 0``.
+    = 1``, and the original bright pixel location samples ``feat(2, 1) = 0``.
     """
     img = torch.zeros(1, 1, 5, 5)
     img[0, 0, 2, 2] = 1.0

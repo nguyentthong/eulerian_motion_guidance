@@ -9,7 +9,7 @@ generated on the fly with imageio.  The test verifies:
 4.  ``rasterise_hints`` and ``sample_random_trajectories`` round-trip.
 
 If imageio's ffmpeg plugin is not available we mark the relevant test
-as skipped — the rest of the dataloader logic is still exercised via
+as skipped.  The rest of the dataloader logic is still exercised via
 the manifest-reading path.
 """
 

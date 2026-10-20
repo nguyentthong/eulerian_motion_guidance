@@ -1,4 +1,4 @@
-"""Motion Adapter (Section 3) — per-scale refinement of warped features.
+"""Motion Adapter (Section 3): per-scale refinement of warped features.
 
 The paper describes a "learnable motion adapter ``M``" that turns sparse
 hints into dense flow *and* warps multi-scale reference features.  We
@@ -9,8 +9,7 @@ factor those two concerns:
   refines the warped reference feature before it is consumed by the
   :class:`emg.models.flow_controlnet.FlowControlNet`.
 
-This split makes each component testable in isolation.  See
-``DESIGN_NOTES.md`` §3.
+This split makes each component testable in isolation.
 """
 
 from __future__ import annotations
@@ -28,24 +27,28 @@ class _ScaleHead(nn.Module):
     def __init__(self, channels: int, num_groups: int = 8) -> None:
         super().__init__()
         g = min(num_groups, channels)
+        final = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.proj = nn.Sequential(
             nn.Conv2d(channels, channels, kernel_size=1),
             nn.GroupNorm(g, channels),
             nn.SiLU(inplace=True),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            final,
         )
         # Zero-init final conv so adapter starts as identity.
-        nn.init.zeros_(self.proj[-1].weight)
-        nn.init.zeros_(self.proj[-1].bias)
+        assert final.bias is not None  # narrow for mypy
+        nn.init.zeros_(final.weight)
+        nn.init.zeros_(final.bias)
 
     def forward(self, x: Tensor) -> Tensor:
-        return x + self.proj(x)
+        out: Tensor = x + self.proj(x)
+        return out
 
 
 class MotionAdapter(nn.Module):
     """Warp reference features by an Eulerian flow and refine.
 
-    Author's interpretation — see ``DESIGN_NOTES.md`` §3.
+    Author's interpretation: the paper does not pin down the adapter's
+    internal architecture.
 
     Args:
         scales: List of channel counts at each spatial scale (top-down).
@@ -55,7 +58,7 @@ class MotionAdapter(nn.Module):
     Shape conventions:
         ``forward(features, flow)`` consumes a list of feature tensors
         ``[(B, C_k, H_k, W_k)]`` and a single flow tensor at the
-        full-resolution grid; the flow is rescaled to each feature's
+        full-resolution grid.  The flow is rescaled to each feature's
         spatial size before warping.
     """
 
@@ -71,7 +74,7 @@ class MotionAdapter(nn.Module):
 
         Args:
             features: List of ``(B, C_k, H_k, W_k)`` tensors.
-            flow: ``(B, 2, H, W)`` Eulerian flow at any resolution; will
+            flow: ``(B, 2, H, W)`` Eulerian flow at any resolution.  It will
                 be bilinearly resampled to each feature's resolution
                 with magnitude scaling.
 

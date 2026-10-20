@@ -1,7 +1,7 @@
 # Keypoint-based portrait animation.  Reproduces Table 2.
 #
-# We use VFHQ or CelebV-HQ as the data source — supply a manifest of
-# clips and let the loader pull MediaPipe landmarks at runtime.
+# We use VFHQ or CelebV-HQ as the data source.  Point ``data.video_root``
+# at the dataset and the loader extracts MediaPipe landmarks at runtime.
 #
 # Usage:
 #   python scripts/train.py --config configs/keypoint_portrait.yaml \
@@ -30,7 +30,7 @@ data:
   dataset: portrait        # 'webvid' | 'portrait'
   layout: celebv_hq        # 'vfhq' | 'celebv_hq'
   video_root: /path/to/celebv-hq
-  num_hints: 64            # more hints — landmarks are denser than user trajectories
+  num_hints: 64            # more hints, landmarks are denser than user trajectories
   landmark_backend: mediapipe   # 'mediapipe' | 'face_alignment' | 'none'
 
 inference:

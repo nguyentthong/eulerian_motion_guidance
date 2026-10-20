@@ -1,22 +1,24 @@
 """Visualisation helpers for flow fields and video rendering.
 
 We use a small subset of the standard Sintel-style HSV colour wheel for
-flow visualisation; this avoids a dependency on OpenCV.
+flow visualisation, which avoids a dependency on OpenCV.
 """
 
 from __future__ import annotations
 
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import Tensor
 
 __all__ = ["flow_to_rgb", "save_video"]
 
 
-def _make_color_wheel() -> np.ndarray:
+def _make_color_wheel() -> npt.NDArray[Any]:
     """Build the standard Middlebury colour wheel (55 entries)."""
     # Counts per segment.
     rs, ys, gs, cs, bs, ms = 15, 6, 4, 11, 13, 6
@@ -57,7 +59,7 @@ def flow_to_rgb(flow: Tensor, *, max_norm: float | None = None) -> Tensor:
 
     Args:
         flow: ``(B, 2, H, W)`` or ``(2, H, W)`` float tensor.
-        max_norm: Optional explicit normalisation; if ``None`` the
+        max_norm: Optional explicit normalisation.  If ``None`` the
             per-frame maximum magnitude is used.
 
     Returns:
@@ -68,7 +70,7 @@ def flow_to_rgb(flow: Tensor, *, max_norm: float | None = None) -> Tensor:
     if squeeze:
         flow = flow.unsqueeze(0)
     if flow.dim() != 4 or flow.shape[1] != 2:
-        raise ValueError(f"flow must be (B, 2, H, W); got {tuple(flow.shape)}")
+        raise ValueError(f"flow must be (B, 2, H, W), got {tuple(flow.shape)}")
     fx = flow[:, 0].cpu().float().numpy()
     fy = flow[:, 1].cpu().float().numpy()
 
@@ -115,7 +117,7 @@ def save_video(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if frames.dim() != 4:
-        raise ValueError(f"frames must be 4-D; got {tuple(frames.shape)}")
+        raise ValueError(f"frames must be 4-D, got {tuple(frames.shape)}")
     if frames.shape[1] == 3:
         frames = frames.permute(0, 2, 3, 1)
     arr = frames.detach().cpu().float().numpy()

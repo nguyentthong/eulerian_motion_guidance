@@ -5,11 +5,19 @@ build-backend = "hatchling.build"
 [project]
 name = "emg"
 version = "0.1.0"
-description = "Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency (MM '26)."
+description = "Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency (ACM MM 2026)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10,<3.13"
-authors = [{ name = "EMG Authors" }]
+authors = [
+    { name = "Thong Nguyen" },
+    { name = "Khoi M. Le" },
+    { name = "Cong-Duy Nguyen" },
+    { name = "Luu Anh Tuan" },
+    { name = "See-Kiong Ng" },
+    { name = "Chunyan Miao" },
+]
+keywords = ["image animation", "video diffusion", "optical flow", "motion guidance"]
 
 # Core runtime dependencies. Heavy libraries (torch / diffusers / etc.) are
 # listed but versioned permissively so that the package installs on a wide
@@ -33,6 +41,11 @@ dependencies = [
     "pyyaml>=6.0",
     "scipy>=1.11",
 ]
+
+[project.urls]
+Homepage = "https://nguyentthong.github.io/eulerian/"
+Paper = "https://arxiv.org/abs/2605.06280"
+Repository = "https://github.com/nguyentthong/eulerian_motion_guidance"
 
 [project.optional-dependencies]
 # Heavy / optional ML dependencies. Many users won't need every metric so

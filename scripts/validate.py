@@ -48,7 +48,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    base = load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    base = (
+        load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    )
     user = load_config(args.config)
     cli = OmegaConf.from_dotlist(list(args.overrides))
     cfg = merge_configs(base, user, cli)
@@ -86,7 +88,7 @@ def main() -> int:
         device=device,
     )
 
-    # We synthesise a small validation batch from random noise — the
+    # We synthesise a small validation batch from random noise.  The
     # full training script's validation hook will substitute real data.
     n = args.num_samples
     res = int(cfg.training.resolution)
@@ -105,7 +107,7 @@ def main() -> int:
 
         flow_estimator = build_raft_estimator(device=device)
     except Exception as exc:  # pragma: no cover
-        _log.warning("Could not load RAFT (%s); skipping E_warp", exc)
+        _log.warning("Could not load RAFT (%s), skipping E_warp", exc)
 
     evaluator = Evaluator(
         config=EvaluatorConfig(
@@ -116,7 +118,9 @@ def main() -> int:
         flow_estimator=flow_estimator,
     )
     results = evaluator.evaluate(pred_tensor, gts)
-    evaluator.save_report(results, method_name="EMG-val", extra_meta={"checkpoint": str(args.checkpoint)})
+    evaluator.save_report(
+        results, method_name="EMG-val", extra_meta={"checkpoint": str(args.checkpoint)}
+    )
     return 0
 
 

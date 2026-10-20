@@ -42,12 +42,14 @@ _log = get_logger()
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--default-config", type=Path, default=Path("configs/default.yaml"))
     p.add_argument("--resume", type=Path, default=None, help="Checkpoint to resume from")
     p.add_argument("--smoke", action="store_true", help="Synthetic CPU smoke test")
-    # Trailing key=value overrides; consumed via OmegaConf.from_dotlist.
+    # Trailing key=value overrides, consumed via OmegaConf.from_dotlist.
     p.add_argument("overrides", nargs="*", help="dotlist overrides, e.g. training.batch_size=2")
     return p.parse_args()
 
@@ -99,7 +101,7 @@ class _SyntheticDataset(torch.utils.data.Dataset[dict[str, Any]]):
 
 def build_flow_estimator(*, smoke: bool, device: torch.device) -> Any:
     if smoke:
-        # Stub estimator: return zero flow — tests Trainer pathways
+        # Stub estimator: return zero flow to test Trainer pathways
         # without downloading weights.
         class ZeroEstimator:
             def __call__(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
@@ -118,15 +120,6 @@ def build_modules(cfg: DictConfig, *, smoke: bool, device: torch.device) -> dict
         depth=int(cfg.model.s2d.depth),
     ).to(device)
 
-    block_channels = tuple(int(c) for c in cfg.model.flow_controlnet.block_channels)
-    fcn = FlowControlNet(
-        latent_channels=int(cfg.model.flow_controlnet.latent_channels),
-        flow_channels=int(cfg.model.flow_controlnet.flow_channels),
-        block_channels=block_channels,
-        svd_unet=None,  # Production wiring is performed inside the trainer.
-    ).to(device)
-    adapter = MotionAdapter(scales=list(block_channels)).to(device)
-
     svd = None
     if not smoke:
         try:
@@ -134,7 +127,19 @@ def build_modules(cfg: DictConfig, *, smoke: bool, device: torch.device) -> dict
 
             svd = build_svd_backbone(model_id=str(cfg.model.svd_model_id), device=device)
         except Exception as exc:  # pragma: no cover
-            _log.warning("Could not load SVD (%s); training in flow-only mode", exc)
+            _log.warning("Could not load SVD (%s), training in flow-only mode", exc)
+
+    # Without SVD the trainer treats RGB frames as latents, so the
+    # ControlNet must accept 3 input channels instead of the VAE's 4.
+    latent_channels = int(cfg.model.flow_controlnet.latent_channels) if svd is not None else 3
+    block_channels = tuple(int(c) for c in cfg.model.flow_controlnet.block_channels)
+    fcn = FlowControlNet(
+        latent_channels=latent_channels,
+        flow_channels=int(cfg.model.flow_controlnet.flow_channels),
+        block_channels=block_channels,
+        svd_unet=None,  # Production wiring is performed inside the trainer.
+    ).to(device)
+    adapter = MotionAdapter(scales=list(block_channels)).to(device)
 
     return {
         "s2d": s2d,
@@ -148,11 +153,11 @@ def build_modules(cfg: DictConfig, *, smoke: bool, device: torch.device) -> dict
 def main() -> int:
     args = parse_args()
     rank, world_size, local_rank = setup_distributed()
-    device = torch.device(
-        f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu"
-    )
+    device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
 
-    base = load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    base = (
+        load_config(args.default_config) if args.default_config.exists() else OmegaConf.create({})
+    )
     user = load_config(args.config)
     cli = OmegaConf.from_dotlist(list(args.overrides))
     cfg = merge_configs(base, user, cli)
@@ -199,6 +204,8 @@ def main() -> int:
         alpha2=float(cfg.consistency.alpha2),
         lambda_geo=float(cfg.consistency.lambda_geo),
         learning_rate=float(cfg.training.learning_rate),
+        lr_schedule=str(cfg.training.get("scheduler", "constant")),  # type: ignore[arg-type]
+        total_steps=int(cfg.training.max_steps),
         weight_decay=float(cfg.training.weight_decay),
         betas=tuple(float(b) for b in cfg.training.betas),  # type: ignore[arg-type]
         gradient_clip=float(cfg.training.gradient_clip) if cfg.training.gradient_clip else None,

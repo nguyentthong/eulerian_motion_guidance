@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency"
+repository-code: "https://github.com/nguyentthong/eulerian_motion_guidance"
+url: "https://nguyentthong.github.io/eulerian/"
+license: Apache-2.0
+authors:
+  - family-names: Nguyen
+    given-names: Thong
+  - family-names: Le
+    given-names: Khoi M.
+  - family-names: Nguyen
+    given-names: Cong-Duy
+  - family-names: Tuan
+    given-names: Luu Anh
+  - family-names: Ng
+    given-names: See-Kiong
+  - family-names: Miao
+    given-names: Chunyan
+preferred-citation:
+  type: article
+  title: "Eulerian Motion Guidance: Robust Image Animation via Bidirectional Geometric Consistency"
+  authors:
+    - family-names: Nguyen
+      given-names: Thong
+    - family-names: Le
+      given-names: Khoi M.
+    - family-names: Nguyen
+      given-names: Cong-Duy
+    - family-names: Tuan
+      given-names: Luu Anh
+    - family-names: Ng
+      given-names: See-Kiong
+    - family-names: Miao
+      given-names: Chunyan
+  journal: "arXiv preprint arXiv:2605.06280"
+  year: 2026
+  url: "https://arxiv.org/abs/2605.06280"
+  identifiers:
+    - type: other
+      value: "arXiv:2605.06280"

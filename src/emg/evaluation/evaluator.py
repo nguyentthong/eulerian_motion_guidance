@@ -193,8 +193,8 @@ class Evaluator:
     def _format_markdown_table(method: str, results: dict[str, float]) -> str:
         """Format the metric dict in a paper-style row.
 
-        Columns appear in the canonical Table 1 order; missing metrics
-        are rendered as ``—``.
+        Columns appear in the canonical Table 1 order.  Missing metrics
+        are rendered as ``n/a``.
         """
         cols = ("lpips", "fid", "fvd", "clip_cons", "e_warp", "cpbd", "arcface")
         headers = (
@@ -211,18 +211,14 @@ class Evaluator:
         row_vals: list[str] = [method]
         for col in cols:
             if col not in results:
-                row_vals.append("—")
+                row_vals.append("n/a")
                 continue
             v = results[col]
             if col == "e_warp":
                 row_vals.append(f"{v * 1000:.2f}")
             else:
                 row_vals.append(f"{v:.4f}")
-        return (
-            "| " + " | ".join(headers) + " |\n"
-            "|" + sep + "|\n"
-            "| " + " | ".join(row_vals) + " |\n"
-        )
+        return "| " + " | ".join(headers) + " |\n|" + sep + "|\n| " + " | ".join(row_vals) + " |\n"
 
     @staticmethod
     def merge_reports(reports: Iterable[Path]) -> str:
@@ -230,8 +226,14 @@ class Evaluator:
         rows: list[str] = []
         cols = ("lpips", "fid", "fvd", "clip_cons", "e_warp", "cpbd", "arcface")
         headers = (
-            "Method", "LPIPS ↓", "FID ↓", "FVD ↓", "CLIP-Cons ↑",
-            "E_warp (×10⁻³) ↓", "CPBD ↑", "ArcFace ↑",
+            "Method",
+            "LPIPS ↓",
+            "FID ↓",
+            "FVD ↓",
+            "CLIP-Cons ↑",
+            "E_warp (×10⁻³) ↓",
+            "CPBD ↑",
+            "ArcFace ↑",
         )
         sep = "|".join(["---"] * len(headers))
         rows.append("| " + " | ".join(headers) + " |")
@@ -243,7 +245,7 @@ class Evaluator:
             row_vals = [method]
             for col in cols:
                 if col not in metrics:
-                    row_vals.append("—")
+                    row_vals.append("n/a")
                 else:
                     v = float(metrics[col])
                     row_vals.append(f"{v * 1000:.2f}" if col == "e_warp" else f"{v:.4f}")

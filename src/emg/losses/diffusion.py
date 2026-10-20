@@ -3,7 +3,7 @@
 Stable Video Diffusion uses an EDM-style v-prediction objective.  We
 provide a thin wrapper computing the per-element MSE of the U-Net's
 v-prediction against the analytic target (which the noise scheduler
-provides).  The schedule itself is not re-implemented; we accept either
+provides).  The schedule itself is not re-implemented. We accept either
 a sample-space target or a noise/v target.
 
 Notation follows the paper: ``L_diff`` is the standard reconstruction
@@ -31,13 +31,13 @@ def diffusion_loss(
     Args:
         prediction: ``(B, T, C, H, W)`` model output (v-prediction by
             default for SVD).
-        target: tensor of the same shape — the analytic v-target from
+        target: tensor of the same shape holding the analytic v-target from
             the scheduler.
         weights: Optional per-sample EDM weighting ``(B,)`` or ``(B, T)``.
             Broadcast across spatial dims.
 
     Returns:
-        Scalar tensor — the (weighted) mean of the squared error.
+        Scalar tensor with the (weighted) mean of the squared error.
     """
     if prediction.shape != target.shape:
         raise ValueError(

@@ -5,11 +5,9 @@
 #                           data.manifest=/data/webvid/manifest.csv \
 #                           data.video_root=/data/webvid/videos
 #
-# This config inherits all defaults from ``default.yaml`` and overrides
-# the dataset wiring; the rest of the pipeline is untouched.
-
-# We compose ``default.yaml`` via OmegaConf interpolation in scripts.
-# Users may also `cat default.yaml trajectory_webvid.yaml > merged.yaml`.
+# The scripts merge this file on top of ``default.yaml`` (pass
+# ``--default-config`` to use a different base), so only the dataset
+# wiring and run-specific settings live here.
 
 seed: 42
 

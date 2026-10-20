@@ -3,7 +3,7 @@
 The paper introduces an S2D module in Section 4.4 but does not specify
 its internal architecture.  We implement a small U-Net (5 down/up
 stages, GroupNorm + SiLU) that maps a 3-channel sparse hint tensor to
-a 2-channel dense flow field.  See ``DESIGN_NOTES.md`` §1 for details.
+a 2-channel dense flow field.
 
 Author's interpretation flagged in :class:`SparseToDenseNet`'s docstring.
 """
@@ -33,7 +33,7 @@ def _conv_block(in_ch: int, out_ch: int, *, num_groups: int = 8) -> nn.Sequentia
 class SparseToDenseNet(nn.Module):
     """Sparse-to-Dense U-Net.
 
-    Author's interpretation — see ``DESIGN_NOTES.md`` §1.
+    Author's interpretation of the unspecified S2D architecture.
 
     Args:
         in_channels: Number of input channels.  Default 3 = ``(u, v, m)``
@@ -82,8 +82,9 @@ class SparseToDenseNet(nn.Module):
 
         self.head = nn.Conv2d(chans[0], out_channels, kernel_size=3, padding=1)
         # Initialise the head so that the network outputs near-zero flow
-        # at init — useful so training starts from "no motion" rather
+        # at init, so training starts from "no motion" rather
         # than random motion.
+        assert self.head.bias is not None  # narrow for mypy
         nn.init.zeros_(self.head.weight)
         nn.init.zeros_(self.head.bias)
 
@@ -98,7 +99,7 @@ class SparseToDenseNet(nn.Module):
         """
         if sparse.dim() != 4 or sparse.shape[1] != self.in_channels:
             raise ValueError(
-                f"sparse must be (B, {self.in_channels}, H, W); got {tuple(sparse.shape)}"
+                f"sparse must be (B, {self.in_channels}, H, W), got {tuple(sparse.shape)}"
             )
 
         feats: list[Tensor] = []
@@ -117,4 +118,5 @@ class SparseToDenseNet(nn.Module):
                 x = F.interpolate(x, size=skip.shape[-2:], mode="bilinear", align_corners=True)
             x = torch.cat([x, skip], dim=1)
             x = block(x)
-        return self.head(x)
+        flow: Tensor = self.head(x)
+        return flow

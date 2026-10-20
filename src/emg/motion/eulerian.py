@@ -13,6 +13,7 @@ frame ``I_0``.  Compare the Lagrangian formulation in Eq. 1 which uses
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -28,10 +29,10 @@ __all__ = [
 def adjacent_pair_indices(num_frames: int) -> tuple[Tensor, Tensor]:
     """Return integer index tensors ``(src, dst)`` for adjacent pairs.
 
-    Implements the index sets used by Eq. 11–12.  For a clip of length
+    Implements the index sets used by Eqs. 11-12.  For a clip of length
     ``T`` we return two ``(T-1,)`` long tensors: the first lists frame
     indices ``0, 1, ..., T-2`` and the second lists ``1, 2, ..., T-1``.
-    The forward set ``P_fwd`` is then ``zip(src, dst)``; the backward
+    The forward set ``P_fwd`` is then ``zip(src, dst)`` and the backward
     set ``P_bwd`` is its reverse.
 
     Args:
@@ -41,7 +42,7 @@ def adjacent_pair_indices(num_frames: int) -> tuple[Tensor, Tensor]:
         Pair of ``(T-1,)`` LongTensor index tensors ``(src, dst)``.
     """
     if num_frames < 2:
-        raise ValueError(f"Need at least 2 frames to form adjacent pairs; got {num_frames}")
+        raise ValueError(f"Need at least 2 frames to form adjacent pairs, got {num_frames}")
     src = torch.arange(num_frames - 1, dtype=torch.long)
     dst = torch.arange(1, num_frames, dtype=torch.long)
     return src, dst
@@ -50,8 +51,8 @@ def adjacent_pair_indices(num_frames: int) -> tuple[Tensor, Tensor]:
 def rescale_flow(flow: Tensor, target_size: tuple[int, int]) -> Tensor:
     """Resample a flow field to a new spatial resolution.
 
-    Optical-flow magnitudes are expressed in *pixel* units; resizing the
-    grid therefore requires scaling the flow vectors by the inverse
+    Optical-flow magnitudes are expressed in *pixel* units, so resizing the
+    grid requires scaling the flow vectors by the inverse
     aspect ratio.  This is necessary in the geometric loss because RAFT
     estimates flow at 256×256 pixel space whereas the SVD latent grid is
     32×32.
@@ -65,7 +66,7 @@ def rescale_flow(flow: Tensor, target_size: tuple[int, int]) -> Tensor:
         new grid.
     """
     if flow.dim() != 4 or flow.shape[1] != 2:
-        raise ValueError(f"flow must be (B, 2, H, W); got {tuple(flow.shape)}")
+        raise ValueError(f"flow must be (B, 2, H, W), got {tuple(flow.shape)}")
     h_src, w_src = flow.shape[-2:]
     h_dst, w_dst = target_size
     if (h_src, w_src) == (h_dst, w_dst):
@@ -85,8 +86,8 @@ class EulerianFlowSequence:
         forward: ``(B, T-1, 2, H, W)`` forward flows ``f_{t→t+1}``.
         backward: ``(B, T-1, 2, H, W)`` backward flows ``f_{t+1→t}``.
 
-    The shapes are asserted on construction; downstream code can rely
-    on them.  Both tensors share dtype/device; mismatches raise.
+    The shapes are asserted on construction, so downstream code can rely
+    on them.  Both tensors must share dtype and device, otherwise construction raises.
     """
 
     forward: Tensor
@@ -99,9 +100,7 @@ class EulerianFlowSequence:
                 f"{tuple(self.backward.shape)} must have identical shape"
             )
         if self.forward.dim() != 5 or self.forward.shape[2] != 2:
-            raise ValueError(
-                f"flow must be (B, T-1, 2, H, W); got {tuple(self.forward.shape)}"
-            )
+            raise ValueError(f"flow must be (B, T-1, 2, H, W), got {tuple(self.forward.shape)}")
         if self.forward.device != self.backward.device:
             raise ValueError("forward and backward must live on the same device")
         if self.forward.dtype != self.backward.dtype:
@@ -134,9 +133,9 @@ class EulerianFlowSequence:
             self.backward.reshape(b * n, c, h, w),
         )
 
-    def to(self, *args: object, **kwargs: object) -> EulerianFlowSequence:
+    def to(self, *args: Any, **kwargs: Any) -> EulerianFlowSequence:
         """Move both tensors to a new device/dtype simultaneously."""
         return EulerianFlowSequence(
-            forward=self.forward.to(*args, **kwargs),  # type: ignore[arg-type]
-            backward=self.backward.to(*args, **kwargs),  # type: ignore[arg-type]
+            forward=self.forward.to(*args, **kwargs),
+            backward=self.backward.to(*args, **kwargs),
         )

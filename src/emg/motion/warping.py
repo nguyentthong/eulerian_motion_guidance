@@ -9,8 +9,8 @@ used by Eq. 8 and Eq. 10:
 * :func:`flow_to_grid` converts an absolute flow in pixel coordinates to
   the normalised ``[-1, 1]`` grid expected by ``F.grid_sample``.
 * :func:`sample_flow_at_flow` is the operator ``F(f_bwd, f_fwd)`` from
-  Eq. 8 — it samples the backward flow at the locations indicated by the
-  forward flow.  See ``DESIGN_NOTES.md`` §4 for the interpretation.
+  Eq. 8. It samples the backward flow at the locations indicated by the
+  forward flow.
 
 All functions are fully differentiable and shape-asserted at module
 boundaries to fail loud rather than silent on dimension mismatches.
@@ -35,7 +35,7 @@ def flow_to_grid(flow: Tensor) -> Tensor:
     Given an absolute displacement field in pixel coordinates, return the
     grid expected by :func:`torch.nn.functional.grid_sample`, where every
     coordinate is mapped to ``[-1, 1]``.  Concretely, for output pixel
-    ``(y, x)`` we want to read input pixel ``(y + dy, x + dx)``; that
+    ``(y, x)`` we want to read input pixel ``(y + dy, x + dx)``. That
     target pixel in normalised coordinates is
 
     .. math::
@@ -53,7 +53,7 @@ def flow_to_grid(flow: Tensor) -> Tensor:
         for ``align_corners=True`` ``grid_sample``.
     """
     if flow.dim() != 4 or flow.shape[1] != 2:
-        raise ValueError(f"Expected flow of shape (B, 2, H, W); got {tuple(flow.shape)}")
+        raise ValueError(f"Expected flow of shape (B, 2, H, W), got {tuple(flow.shape)}")
     b, _, h, w = flow.shape
     device, dtype = flow.device, flow.dtype
 
@@ -99,7 +99,7 @@ def backward_warp(
         Warped feature tensor with the same shape as ``feat``.
     """
     if feat.dim() != 4:
-        raise ValueError(f"feat must be (B, C, H, W); got {tuple(feat.shape)}")
+        raise ValueError(f"feat must be (B, C, H, W), got {tuple(feat.shape)}")
     if flow.shape[0] != feat.shape[0] or flow.shape[2:] != feat.shape[2:]:
         raise ValueError(
             f"feat ({tuple(feat.shape)}) and flow ({tuple(flow.shape)}) must share "
@@ -119,9 +119,9 @@ def sample_flow_at_flow(flow_bwd: Tensor, flow_fwd: Tensor) -> Tensor:
     """Implement the ``F(f_bwd, f_fwd)`` operator from Eq. 8.
 
     "Backward flow vector sampled at the target location mapped by the
-    forward flow" — i.e., we look up ``flow_bwd`` at the position
+    forward flow", i.e., we look up ``flow_bwd`` at the position
     ``x + flow_fwd(x)`` for every pixel ``x``.  This is the pillar of the
-    forward–backward cycle check.
+    forward-backward cycle check.
 
     Args:
         flow_bwd: Backward flow ``(B, 2, H, W)`` (i.e. ``f_{t+1→t}``).
@@ -131,9 +131,9 @@ def sample_flow_at_flow(flow_bwd: Tensor, flow_fwd: Tensor) -> Tensor:
         Resampled backward flow ``(B, 2, H, W)``.
 
     Notes:
-        Author's interpretation.  See ``DESIGN_NOTES.md`` §4.  The
+        Author's interpretation.  The
         sampling is bilinear with zero padding, matching standard
-        forward–backward cycle implementations in the optical-flow
+        forward-backward cycle implementations in the optical-flow
         literature.
     """
     if flow_bwd.shape != flow_fwd.shape:

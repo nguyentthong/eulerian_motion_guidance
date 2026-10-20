@@ -8,8 +8,9 @@ tensor in ``[0, 1]``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
-import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import Tensor
@@ -23,16 +24,16 @@ class VideoTransform:
 
     Attributes:
         size: Output square spatial size (e.g., 256).
-        normalize: If True, return ``[0, 1]``; otherwise return
+        normalize: If True, return ``[0, 1]``, otherwise return
             ``[-1, 1]`` (the SVD VAE expects ``[-1, 1]``).
     """
 
     size: int = 256
     normalize: bool = True
 
-    def __call__(self, frames: np.ndarray) -> Tensor:
+    def __call__(self, frames: npt.NDArray[Any]) -> Tensor:
         if frames.ndim != 4 or frames.shape[-1] != 3:
-            raise ValueError(f"frames must be (T, H, W, 3); got {frames.shape}")
+            raise ValueError(f"frames must be (T, H, W, 3), got {frames.shape}")
         # to (T, 3, H, W) float
         t = torch.from_numpy(frames).permute(0, 3, 1, 2).contiguous().float() / 255.0
 

@@ -36,7 +36,7 @@ class RankZeroLogger:
     """Logger that filters by rank.
 
     On rank 0 every level is forwarded to the underlying
-    :class:`logging.Logger`; on other ranks only ERROR and above pass
+    :class:`logging.Logger`.  On other ranks only ERROR and above pass
     through unless ``all_ranks=True`` is set on the call.
     """
 
@@ -82,7 +82,7 @@ def get_logger(name: str = "emg") -> RankZeroLogger:
     """Return the singleton rank-zero logger.
 
     Args:
-        name: The logger name (rarely needed; we keep a single global
+        name: The logger name (rarely needed, we keep a single global
             logger).
 
     Returns:

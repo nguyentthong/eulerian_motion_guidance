@@ -25,9 +25,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.json:
-        args.output.with_suffix(".json").write_text(
-            json.dumps(PORTRAIT_DATASET_INFO, indent=2)
-        )
+        args.output.with_suffix(".json").write_text(json.dumps(PORTRAIT_DATASET_INFO, indent=2))
         print(f"wrote {args.output.with_suffix('.json')}")
         return 0
 
